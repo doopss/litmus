@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: #0f0f0f;
+  color: #ffffff;
+  overscroll-behavior: none;
+}
+
+@layer components {
+  .card {
+    @apply bg-litmus-surface border border-litmus-border rounded-card;
+  }
+  .touch-target {
+    @apply min-h-[44px];
+  }
+  .cta-gradient {
+    background: linear-gradient(135deg, #9945ff 0%, #14f195 100%);
+  }
+}
+
+.odds-bar {
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.loading-spinner {
+  border: 3px solid #2a2a2a;
+  border-top-color: #9945ff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
