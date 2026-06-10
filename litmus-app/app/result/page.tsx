@@ -3,170 +3,193 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useApp } from "@/lib/store";
-import { RELATED_MARKETS } from "@/lib/mockData";
-import Confetti from "@/components/Confetti";
 import CountUp from "@/components/CountUp";
+import Icon from "@/components/Icon";
 
 const FALLBACK_RESULT = {
   label: "FAKE" as const,
   confidence: 94,
   earnings: { base: 15, speed: 5, streak: 10, total: 30 },
-  fileName: "elon-mars-video.mp4",
+  fileName: "elon-mars.mp4",
 };
 
 export default function ResultPage() {
-  const { state, hydrated, showToast } = useApp();
-  const [confidence, setConfidence] = useState(0);
-
-  const result = state.lastResult ?? FALLBACK_RESULT;
-  const isFake = result.label === "FAKE";
+  const { state, markets, showToast } = useApp();
+  const r = state.lastResult ?? FALLBACK_RESULT;
+  const fake = r.label === "FAKE";
+  const col = fake ? "var(--red)" : "var(--green)";
+  const [conf, setConf] = useState(0);
 
   useEffect(() => {
-    if (!hydrated) return;
-    const target = result.confidence;
-    const timer = setTimeout(() => {
-      let c = 0;
-      const interval = setInterval(() => {
-        c += 2;
-        if (c >= target) {
-          c = target;
-          clearInterval(interval);
-        }
-        setConfidence(c);
-      }, 20);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [hydrated, result.confidence]);
+    let c = 0;
+    const t = setInterval(() => {
+      c += 2;
+      if (c >= r.confidence) {
+        c = r.confidence;
+        clearInterval(t);
+      }
+      setConf(c);
+    }, 18);
+    const s = setTimeout(() => {
+      clearInterval(t);
+      setConf(r.confidence);
+    }, 1400);
+    return () => {
+      clearInterval(t);
+      clearTimeout(s);
+    };
+  }, [r.confidence]);
 
   async function share() {
-    const text = `I just caught a ${result.label} on @LitmusProtocol with ${result.confidence}% confidence! Earned +${result.earnings.total} LMT 🎯`;
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(
+        `Caught a ${r.label} on Litmus · ${r.confidence}% confidence · +${r.earnings.total} LMT`
+      );
     } catch {
-      // clipboard unavailable — toast still confirms
+      // clipboard unavailable
     }
-    showToast("Results copied to clipboard!");
+    showToast("Result copied to clipboard");
   }
 
+  const related = markets.slice(1, 3);
+
   return (
-    <div className="animate-fade-in">
-      <Confetti />
-
-      <div className="space-y-5 px-4 py-6 text-center">
-        {/* Celebration */}
-        <div className="animate-scale-in text-5xl">🎉</div>
-        <div>
-          <h1 className="mb-1 text-2xl font-extrabold">
-            Verification Complete!
-          </h1>
-          <p className="text-sm text-litmus-muted">
-            Your analysis has been recorded on-chain
-          </p>
-        </div>
-
-        {/* Result Circle */}
-        <div
-          className={`mx-auto flex h-36 w-36 animate-scale-in flex-col items-center justify-center rounded-full border-4 ${
-            isFake
-              ? "border-litmus-danger bg-litmus-danger/10"
-              : "border-litmus-green bg-litmus-green/10"
-          }`}
-          style={{ animationDelay: "200ms" }}
+    <div
+      className="content narrow fade"
+      style={{ padding: 0, maxWidth: 640, textAlign: "center" }}
+    >
+      <div className="chip cyan" style={{ margin: "0 auto 18px" }}>
+        <Icon name="shield" size={12} />
+        VERIFICATION COMPLETE · ANCHORED
+      </div>
+      <div
+        className="ring"
+        style={{
+          border: "1px solid var(--line)",
+          background:
+            "radial-gradient(circle at 50% 40%, " +
+            (fake
+              ? "color-mix(in oklab,var(--red) 14%,transparent)"
+              : "color-mix(in oklab,var(--green) 14%,transparent)") +
+            ", transparent 70%)",
+        }}
+      >
+        <svg
+          width="168"
+          height="168"
+          viewBox="0 0 168 168"
+          style={{ position: "absolute", inset: 0, transform: "rotate(-90deg)" }}
         >
-          <span
-            className={`text-2xl font-extrabold ${
-              isFake ? "text-litmus-danger" : "text-litmus-green"
-            }`}
+          <circle
+            cx="84"
+            cy="84"
+            r="76"
+            fill="none"
+            stroke="var(--line)"
+            strokeWidth="3"
+          />
+          <circle
+            cx="84"
+            cy="84"
+            r="76"
+            fill="none"
+            stroke={col}
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray={2 * Math.PI * 76}
+            strokeDashoffset={2 * Math.PI * 76 * (1 - conf / 100)}
+            style={{ transition: "stroke-dashoffset .1s linear" }}
+          />
+        </svg>
+        <div>
+          <div className="verdict" style={{ fontSize: 30, color: col }}>
+            {r.label}
+          </div>
+          <div className="num" style={{ fontSize: 22 }}>
+            {conf}%
+          </div>
+          <div className="lbl" style={{ marginTop: 2 }}>
+            CONFIDENCE
+          </div>
+        </div>
+      </div>
+      <p className="dim" style={{ fontSize: 13.5, margin: "20px 0 24px" }}>
+        Detector flagged{" "}
+        <span className="mono" style={{ color: "var(--ink)" }}>
+          {r.fileName}
+        </span>{" "}
+        as{" "}
+        <b style={{ color: col }}>{r.label}</b>. Proof recorded on-chain.
+      </p>
+
+      <div className="panel" style={{ textAlign: "left", marginBottom: 14 }}>
+        <div className="panel-h">
+          <span className="lbl">EARNINGS BREAKDOWN</span>
+        </div>
+        <div className="panel-b" style={{ display: "grid", gap: 0 }}>
+          {(
+            [
+              ["Base reward", r.earnings.base, ""],
+              ["Speed bonus", r.earnings.speed, "t-green"],
+              ["Streak bonus", r.earnings.streak, "t-green"],
+            ] as const
+          ).map((x) => (
+            <div className="between" key={x[0]} style={{ padding: "7px 0" }}>
+              <span className="dim" style={{ fontSize: 13.5 }}>
+                {x[0]}
+              </span>
+              <span className={"num " + x[2]} style={{ fontSize: 14 }}>
+                +{x[1]} LMT
+              </span>
+            </div>
+          ))}
+          <div
+            className="between"
+            style={{
+              padding: "12px 0 2px",
+              borderTop: "1px solid var(--line)",
+              marginTop: 6,
+            }}
           >
-            {result.label}
-          </span>
-          <span className="mt-1 text-lg font-bold">{confidence}%</span>
-          <span className="text-[10px] text-litmus-muted">confidence</span>
-        </div>
-
-        {/* Confidence Bar */}
-        <div className="card mx-auto max-w-xs p-4">
-          <p className="mb-1 text-xs text-litmus-muted">Confidence Score</p>
-          <div className="h-2 overflow-hidden rounded-full bg-litmus-bg">
-            <div
-              className={`h-full transition-all duration-300 ${
-                isFake ? "bg-litmus-danger" : "bg-litmus-green"
-              }`}
-              style={{ width: `${confidence}%` }}
-            />
+            <span style={{ fontWeight: 600 }}>Total earned</span>
+            <span className="num t-cyan" style={{ fontSize: 22 }}>
+              <CountUp
+                target={r.earnings.total}
+                prefix="+"
+                suffix=" LMT"
+              />
+            </span>
           </div>
         </div>
+      </div>
 
-        {/* Earnings Breakdown */}
-        <div className="card p-4 text-left">
-          <h3 className="mb-3 text-center text-sm font-semibold">
-            Earnings Breakdown
-          </h3>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-litmus-muted">Base Reward</span>
-              <span>+{result.earnings.base} LMT</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-litmus-muted">Speed Bonus</span>
-              <span className="text-litmus-green">
-                +{result.earnings.speed} LMT
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-litmus-muted">Streak Bonus</span>
-              <span className="text-litmus-green">
-                +{result.earnings.streak} LMT
-              </span>
-            </div>
-            <div className="flex justify-between border-t border-litmus-border pt-2 font-bold">
-              <span>Total Earned</span>
-              <span className="text-lg text-litmus-accent">
-                <CountUp
-                  target={result.earnings.total}
-                  duration={1200}
-                  prefix="+"
-                  suffix=" LMT"
-                />
-              </span>
-            </div>
-          </div>
+      <div className="panel" style={{ textAlign: "left", marginBottom: 16 }}>
+        <div className="panel-h">
+          <span className="lbl">RELATED MARKETS</span>
         </div>
-
-        {/* Related Markets */}
-        <div className="text-left">
-          <h3 className="mb-2 text-sm font-semibold">Related Markets</h3>
-          <div className="space-y-2">
-            {RELATED_MARKETS.map((m) => (
-              <Link
-                key={m.title}
-                href="/market"
-                className="card flex items-center justify-between p-3 transition-colors hover:border-litmus-accent/50"
-              >
-                <span className="text-sm font-medium">{m.title}</span>
-                <span className="text-xs text-litmus-danger">
-                  FAKE {m.fakePct}%
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={share}
-            className="touch-target rounded-card border border-litmus-border py-3 text-sm font-semibold transition-colors hover:border-litmus-accent"
-          >
-            📤 Share
-          </button>
+        {related.map((m) => (
           <Link
-            href="/verify"
-            className="touch-target flex items-center justify-center rounded-card cta-gradient py-3 text-sm font-semibold text-black transition-transform active:scale-[0.98]"
+            key={m.id}
+            href={`/market/${m.id}`}
+            className="tbl-row"
+            style={{ width: "100%", textAlign: "left" }}
           >
-            Keep Earning
+            <span style={{ flex: 1, fontSize: 14 }}>{m.subject}</span>
+            <span className="mono t-red" style={{ fontSize: 12 }}>
+              {100 - m.realPct}% FAKE
+            </span>
+            <Icon name="arrowR" size={15} style={{ color: "var(--cyan)" }} />
           </Link>
-        </div>
+        ))}
+      </div>
+
+      <div className="grid g2">
+        <button className="btn" onClick={share}>
+          <Icon name="share" size={16} /> Share
+        </button>
+        <Link href="/verify" className="btn cta">
+          Keep earning <Icon name="arrowR" size={16} />
+        </Link>
       </div>
     </div>
   );

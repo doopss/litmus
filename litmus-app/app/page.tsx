@@ -1,147 +1,148 @@
 "use client";
 
 import Link from "next/link";
+import { useApp } from "@/lib/store";
 import CountUp from "@/components/CountUp";
-
-const FEATURES = [
-  {
-    icon: "⚡️",
-    title: "Verify & Earn",
-    desc: "Upload suspicious videos and earn 10–50 LMT per verification.",
-    href: "/verify",
-  },
-  {
-    icon: "🎲",
-    title: "Bet & Win",
-    desc: "Predict REAL or FAKE on hot markets and multiply your LMT.",
-    href: "/market",
-  },
-  {
-    icon: "🏆",
-    title: "Compete",
-    desc: "Climb weekly rankings and unlock bonus rewards.",
-    href: "/leaderboard",
-  },
-];
+import Icon from "@/components/Icon";
 
 export default function LandingPage() {
-  return (
-    <div className="animate-fade-in">
-      <header className="flex items-center justify-between border-b border-litmus-border px-4 py-3">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-litmus-accent text-sm font-bold">
-            L
-          </div>
-          <span className="text-lg font-bold">Litmus</span>
-        </div>
-        <Link
-          href="/dashboard"
-          className="touch-target flex items-center px-3 text-sm font-medium text-litmus-accent"
-        >
-          Sign In
-        </Link>
-      </header>
+  const { markets } = useApp();
 
-      {/* Hero */}
-      <div className="px-4 py-8 text-center">
-        <div className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-litmus-border bg-litmus-surface px-3 py-1 text-xs text-litmus-muted">
-          <span className="h-2 w-2 animate-pulse-slow rounded-full bg-litmus-green" />
-          Live on Solana
-        </div>
-        <h1 className="mb-3 text-3xl font-extrabold leading-tight">
-          Get Paid to
-          <br />
-          <span className="bg-cta-gradient bg-clip-text text-transparent">
-            Catch Fakes
-          </span>
-        </h1>
-        <p className="mx-auto mb-6 max-w-xs text-sm text-litmus-muted">
-          Verify deepfakes, bet on authenticity, and climb the leaderboard.
-          Earn LMT tokens for every catch.
-        </p>
-        <Link
-          href="/dashboard"
-          className="touch-target mb-3 block w-full rounded-card cta-gradient py-4 text-base font-semibold text-black transition-transform active:scale-[0.98]"
-        >
-          Start Earning — It&apos;s Free
-        </Link>
+  const tape = markets.flatMap((m) => [
+    {
+      t: m.subject,
+      v: m.realPct + "% REAL",
+      s: m.realPct < 35 ? "r" : "g",
+    },
+  ]);
+  const allTape = [
+    ...tape,
+    { t: "PAID OUT 24H", v: "48,210 LMT", s: "g" },
+    { t: "FAKES FLAGGED", v: "2.4M", s: "r" },
+    { t: "HUNTERS ONLINE", v: "12,847", s: "g" },
+  ];
+
+  return (
+    <div className="fade">
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 22 }}>
+        <span className="chip cyan">
+          <span className="dot" />
+          LIVE ON SOLANA
+        </span>
+        <span className="lbl">PROTOCOL v2.0</span>
+      </div>
+      <h1 className="hero-title" style={{ marginBottom: 22 }}>
+        AUTHENTICITY
+        <br />
+        IS A <span className="accent">SIGNAL.</span>
+      </h1>
+      <p
+        className="dim"
+        style={{
+          fontSize: 16,
+          maxWidth: 520,
+          marginBottom: 26,
+          lineHeight: 1.55,
+        }}
+      >
+        Litmus turns forensic media analysis into a market. Verify suspect
+        footage, stake conviction on prediction markets, and earn LMT for every
+        fake you catch.
+      </p>
+      <div className="row" style={{ gap: 12, marginBottom: 34, flexWrap: "wrap" }}>
         <Link
           href="/verify"
-          className="touch-target block w-full rounded-card border border-litmus-border py-3 text-sm text-litmus-muted transition-colors hover:border-litmus-accent hover:text-white"
+          className="btn cta"
+          style={{ fontSize: 14, padding: "13px 22px" }}
         >
-          See How It Works
+          <Icon name="scan" size={17} /> Run a verification
+        </Link>
+        <Link href="/market" className="btn" style={{ padding: "13px 20px" }}>
+          <Icon name="market" size={17} /> Browse markets
         </Link>
       </div>
 
-      {/* Stats Bar */}
-      <div className="card mx-4 mb-6 p-4">
-        <div className="grid grid-cols-3 gap-3 text-center">
-          <div>
-            <p className="text-lg font-bold text-litmus-accent">
-              <CountUp target={12847} />
-            </p>
-            <p className="text-[10px] uppercase tracking-wide text-litmus-muted">
-              Earning Today
-            </p>
+      <div className="ticker" style={{ margin: "0 0 30px", borderRadius: 6 }}>
+        <div className="ticker-track">
+          {[...allTape, ...allTape].map((x, i) => (
+            <span className="ti" key={i}>
+              <span
+                className={"mono " + (x.s === "g" ? "t-green" : "t-red")}
+              >
+                ●
+              </span>{" "}
+              {x.t} <b className="mono">{x.v}</b>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid g3" style={{ marginBottom: 30 }}>
+        <div className="stat">
+          <div className="v t-cyan">
+            <CountUp target={12847} />
           </div>
-          <div className="border-x border-litmus-border">
-            <p className="text-lg font-bold text-litmus-green">
-              <CountUp target={48} prefix="$" suffix="K" />
-            </p>
-            <p className="text-[10px] uppercase tracking-wide text-litmus-muted">
-              Paid Out
-            </p>
+          <div className="lbl" style={{ marginTop: 4 }}>
+            EARNING TODAY
           </div>
-          <div>
-            <p className="text-lg font-bold">
-              <CountUp
-                target={2.4}
-                suffix="M"
-                format={(n) => n.toFixed(1)}
-              />
-            </p>
-            <p className="text-[10px] uppercase tracking-wide text-litmus-muted">
-              Fakes Caught
-            </p>
+        </div>
+        <div className="stat">
+          <div className="v t-green">
+            <CountUp target={48} prefix="$" suffix="K" />
+          </div>
+          <div className="lbl" style={{ marginTop: 4 }}>
+            PAID OUT (24H)
+          </div>
+        </div>
+        <div className="stat">
+          <div className="v">
+            <CountUp target={2.4} decimals={1} suffix="M" />
+          </div>
+          <div className="lbl" style={{ marginTop: 4 }}>
+            FAKES CAUGHT
           </div>
         </div>
       </div>
 
-      {/* Features */}
-      <div className="grid gap-3 px-4">
-        {FEATURES.map((f, i) => (
+      <div className="grid g3">
+        {[
+          {
+            i: "scan" as const,
+            t: "Verify & Earn",
+            d: "Upload suspect clips. Our detector returns a confidence score — you earn 10–50 LMT per resolved verification.",
+            href: "/verify",
+          },
+          {
+            i: "market" as const,
+            t: "Stake Conviction",
+            d: "Drag the conviction dial toward REAL or FAKE. Contrarian calls pay multiples when you're right.",
+            href: "/market",
+          },
+          {
+            i: "trophy" as const,
+            t: "Climb the Tape",
+            d: "Accuracy compounds into rank. Weekly standings unlock bonus emissions for top hunters.",
+            href: "/leaderboard",
+          },
+        ].map((f, i) => (
           <Link
-            key={f.title}
+            key={f.t}
             href={f.href}
-            className="card flex animate-slide-up items-start gap-3 p-4 transition-colors hover:border-litmus-accent/50"
-            style={{ animationDelay: `${i * 100}ms` }}
+            className="feat up"
+            style={{ textAlign: "left", animationDelay: i * 80 + "ms" }}
           >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-litmus-accent/20 text-lg">
-              {f.icon}
+            <div className="fi">
+              <Icon name={f.i} size={20} />
             </div>
-            <div>
-              <h3 className="mb-0.5 text-sm font-semibold">{f.title}</h3>
-              <p className="text-xs text-litmus-muted">{f.desc}</p>
-            </div>
+            <h3 style={{ fontSize: 16, marginBottom: 7 }}>{f.t}</h3>
+            <p
+              className="dim"
+              style={{ fontSize: 13, margin: 0, lineHeight: 1.5 }}
+            >
+              {f.d}
+            </p>
           </Link>
         ))}
-      </div>
-
-      {/* Testimonial */}
-      <div className="mx-4 my-6 rounded-card border border-litmus-accent/30 bg-gradient-to-br from-litmus-accent/10 to-transparent p-4">
-        <p className="mb-3 text-sm italic text-litmus-muted">
-          &quot;I earned 2,400 LMT in my first week just verifying TikToks.
-          Litmus changed how I think about media.&quot;
-        </p>
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-litmus-accent text-xs font-bold">
-            DK
-          </div>
-          <div>
-            <p className="text-xs font-semibold">@deepfakekiller</p>
-            <p className="text-[10px] text-litmus-muted">Top 5% Hunter</p>
-          </div>
-        </div>
       </div>
     </div>
   );

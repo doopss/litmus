@@ -2,122 +2,217 @@
 
 import Link from "next/link";
 import { useApp } from "@/lib/store";
-import { LMT_USD_RATE, MARKET } from "@/lib/mockData";
-import WalletButton from "@/components/WalletButton";
+import { usd } from "@/lib/mockData";
+import WalletControl from "@/components/WalletControl";
+import Sparkline from "@/components/Sparkline";
+import Icon from "@/components/Icon";
+import { ActivityKind } from "@/lib/types";
+
+const ACTIVITY_ICONS: Record<ActivityKind, "scan" | "trophy" | "market" | "flame"> = {
+  verify: "scan",
+  win: "trophy",
+  bet: "market",
+  streak: "flame",
+};
+
+const EARN_SPARK = [8, 12, 9, 16, 14, 22, 19, 28, 24, 31];
 
 export default function DashboardPage() {
-  const { state, hydrated } = useApp();
+  const { state, markets } = useApp();
+  const hot = markets[0];
 
   return (
-    <div className="animate-fade-in">
-      <header className="flex items-center justify-between border-b border-litmus-border px-4 py-3">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-litmus-accent text-sm font-bold">
-            L
+    <div className="fade">
+      <div
+        className="between"
+        style={{ marginBottom: 18, flexWrap: "wrap", gap: 10 }}
+      >
+        <div>
+          <div className="lbl" style={{ marginBottom: 6 }}>
+            SESSION · HUNTER #{state.rank}
           </div>
-          <span className="font-bold">Dashboard</span>
+          <h1 style={{ fontSize: 26 }}>Dashboard</h1>
         </div>
-        <WalletButton />
-      </header>
+        <div className="row" style={{ gap: 8 }}>
+          <WalletControl />
+        </div>
+      </div>
 
-      <div className="space-y-4 px-4 py-4">
-        <h1 className="text-xl font-extrabold">Welcome, Hunter! 🏆</h1>
-
-        {/* Earnings Card */}
-        <div className="rounded-card border border-litmus-accent/40 bg-gradient-to-br from-litmus-accent/20 to-litmus-surface p-5">
-          <p className="mb-1 text-xs text-litmus-muted">Your Balance</p>
-          <div className="mb-2 flex items-end gap-2">
-            <span className="text-3xl font-extrabold">
-              {hydrated ? state.balance.toLocaleString() : "—"}
-            </span>
-            <span className="mb-1 font-semibold text-litmus-accent">LMT</span>
-          </div>
-          <p className="text-sm text-litmus-muted">
-            ≈ ${hydrated ? (state.balance * LMT_USD_RATE).toFixed(2) : "—"} USD
-          </p>
-          <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-litmus-bg/50 px-3 py-1 text-xs">
-            <span>🏅</span>
-            <span>
-              Rank #{state.rank} — Top {state.percentile}%
-            </span>
+      <div
+        className="grid"
+        style={{ gridTemplateColumns: "minmax(0,1.4fr) 1fr", marginBottom: 14 }}
+        id="dash-top"
+      >
+        <div className="panel tick">
+          <div className="panel-b">
+            <div className="between">
+              <span className="lbl">LMT BALANCE</span>
+              <span className="chip cyan">
+                <Icon name="trophy" size={11} />
+                RANK #{state.rank} · TOP {state.percentile}%
+              </span>
+            </div>
+            <div
+              className="row"
+              style={{ alignItems: "flex-end", gap: 10, margin: "12px 0 4px" }}
+            >
+              <span className="num" style={{ fontSize: 44, lineHeight: 1 }}>
+                {state.balance.toLocaleString()}
+              </span>
+              <span
+                className="mono t-cyan"
+                style={{ fontSize: 16, marginBottom: 6 }}
+              >
+                LMT
+              </span>
+            </div>
+            <div className="between">
+              <span className="mut mono" style={{ fontSize: 12.5 }}>
+                ≈ {usd(state.balance)} USD
+              </span>
+              <Sparkline
+                data={EARN_SPARK}
+                w={140}
+                h={34}
+                stroke="var(--green)"
+                fill="color-mix(in oklab,var(--green) 12%,transparent)"
+              />
+            </div>
           </div>
         </div>
 
-        {/* CTAs */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid" style={{ gap: 14 }}>
           <Link
             href="/verify"
-            className="touch-target flex items-center justify-center rounded-card cta-gradient py-4 text-sm font-semibold text-black transition-transform active:scale-[0.98]"
+            className="btn cta"
+            style={{
+              height: "100%",
+              flexDirection: "column",
+              gap: 8,
+              padding: 18,
+            }}
           >
-            ⚡️ Verify &amp; Earn
+            <Icon name="scan" size={22} />
+            <span style={{ fontWeight: 600 }}>Verify & Earn</span>
           </Link>
           <Link
             href="/market"
-            className="touch-target card flex items-center justify-center py-4 text-sm font-semibold transition-colors hover:border-litmus-accent"
+            className="btn"
+            style={{
+              height: "100%",
+              flexDirection: "column",
+              gap: 8,
+              padding: 18,
+            }}
           >
-            🎲 Bet &amp; Win
+            <Icon name="market" size={22} />
+            <span style={{ fontWeight: 600 }}>Open Markets</span>
           </Link>
         </div>
+      </div>
 
-        {/* Hot Market Preview */}
+      <div className="grid g4" style={{ marginBottom: 14 }}>
+        {(
+          [
+            ["VERIFIED", state.stats.verified, ""],
+            ["ACCURACY", state.stats.accuracy + "%", "t-green"],
+            ["ROI", "+" + state.stats.roi + "%", "t-cyan"],
+            ["STREAK", state.stats.streak + "d", "t-amber"],
+          ] as const
+        ).map((s) => (
+          <div className="stat" key={s[0]}>
+            <div className={"v " + s[2]} style={{ fontSize: 22 }}>
+              {s[1]}
+            </div>
+            <div className="lbl" style={{ marginTop: 3 }}>
+              {s[0]}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid g2 collapse" style={{ alignItems: "start" }}>
         <Link
-          href="/market"
-          className="card block p-4 transition-colors hover:border-litmus-accent/50"
+          href={`/market/${hot.id}`}
+          className="panel tick"
+          style={{ textAlign: "left", display: "block", padding: 0 }}
         >
-          <div className="mb-3 flex items-start justify-between">
-            <div>
-              <span className="rounded-full bg-litmus-danger/20 px-2 py-0.5 text-[10px] font-medium text-litmus-danger">
-                🔥 HOT
-              </span>
-              <h3 className="mt-1 text-sm font-semibold">{MARKET.title}</h3>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] text-litmus-muted">Pool</p>
-              <p className="text-sm font-bold text-litmus-accent">
-                {(MARKET.pool / 1000).toFixed(0)}K LMT
-              </p>
-            </div>
-          </div>
-          <div className="mb-2 flex justify-between text-xs">
-            <span className="text-litmus-danger">
-              {MARKET.crowdFakePercent}% say FAKE
+          <div className="panel-h">
+            <span className="lbl">HOT MARKET</span>
+            <span className="chip red">
+              <Icon name="flame" size={11} />
+              TRENDING
             </span>
-            <span className="text-litmus-muted">Ends in {MARKET.endsIn}</span>
           </div>
-          <div className="flex h-2 overflow-hidden rounded-full bg-litmus-bg">
+          <div className="panel-b">
+            <h3 style={{ fontSize: 17, marginBottom: 4 }}>{hot.subject}</h3>
+            <p className="dim" style={{ fontSize: 12.5, margin: "0 0 14px" }}>
+              {hot.claim}
+            </p>
+            <div className="between" style={{ marginBottom: 7 }}>
+              <span className="mono t-green" style={{ fontSize: 12 }}>
+                REAL {hot.realPct}%
+              </span>
+              <span className="mono t-red" style={{ fontSize: 12 }}>
+                {100 - hot.realPct}% FAKE
+              </span>
+            </div>
+            <div className="split">
+              <div className="g" style={{ width: hot.realPct + "%" }} />
+              <div className="r" style={{ width: 100 - hot.realPct + "%" }} />
+            </div>
             <div
-              className="odds-bar h-full bg-litmus-green"
-              style={{ width: `${100 - MARKET.crowdFakePercent}%` }}
-            />
-            <div
-              className="odds-bar h-full bg-litmus-danger"
-              style={{ width: `${MARKET.crowdFakePercent}%` }}
-            />
+              className="row t-cyan"
+              style={{
+                fontSize: 12,
+                fontFamily: "var(--mono)",
+                marginTop: 14,
+              }}
+            >
+              STAKE CONVICTION <Icon name="arrowR" size={14} />
+            </div>
           </div>
         </Link>
 
-        {/* Activity Feed */}
-        <div>
-          <h3 className="mb-3 text-sm font-semibold">Recent Activity</h3>
-          <div className="space-y-2">
-            {state.activities.map((a, i) => (
-              <div
-                key={a.id}
-                className="card flex animate-slide-up items-center gap-3 p-3"
-                style={{ animationDelay: `${i * 80}ms` }}
-              >
-                <span className="text-lg">{a.icon}</span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{a.description}</p>
-                  <p className="text-[10px] text-litmus-muted">{a.time}</p>
+        <div className="panel">
+          <div className="panel-h">
+            <span className="lbl">ACTIVITY LOG</span>
+          </div>
+          <div>
+            {state.activities.slice(0, 6).map((a) => (
+              <div className="tbl-row" key={a.id}>
+                <span
+                  className="fi"
+                  style={{
+                    width: 30,
+                    height: 30,
+                    marginBottom: 0,
+                    borderRadius: 6,
+                  }}
+                >
+                  <Icon name={ACTIVITY_ICONS[a.kind]} size={15} />
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {a.description}
+                  </div>
+                  <div className="lbl" style={{ marginTop: 2 }}>
+                    {a.time}
+                  </div>
                 </div>
                 <span
-                  className={`text-sm font-bold ${
-                    a.reward >= 0 ? "text-litmus-green" : "text-litmus-danger"
-                  }`}
+                  className={"num " + (a.reward >= 0 ? "t-green" : "t-red")}
+                  style={{ fontSize: 13 }}
                 >
                   {a.reward >= 0 ? "+" : ""}
-                  {a.reward} LMT
+                  {a.reward}
                 </span>
               </div>
             ))}

@@ -1,23 +1,31 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Space_Grotesk, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { AppProvider } from "@/lib/store";
-import BottomNav from "@/components/BottomNav";
-import Toast from "@/components/Toast";
+import AppShell from "@/components/AppShell";
 
-const inter = Inter({ subsets: ["latin"] });
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-grot",
+});
+
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-mono",
+});
 
 export const metadata: Metadata = {
-  title: "Litmus Protocol — Get Paid to Catch Fakes",
+  title: "Litmus · Forensic",
   description:
-    "Verify deepfakes, bet on authenticity, and earn LMT tokens on Solana.",
+    "Verify deepfakes, stake conviction on prediction markets, and earn LMT on Solana.",
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#0f0f0f",
+  themeColor: "#08090b",
 };
 
 export default function RootLayout({
@@ -27,13 +35,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.className} antialiased`}>
+      <body
+        className={`${spaceGrotesk.variable} ${ibmPlexMono.variable} antialiased`}
+      >
         <AppProvider>
-          <div className="relative mx-auto min-h-screen max-w-[480px]">
-            <main className="pb-[88px]">{children}</main>
-            <BottomNav />
-            <Toast />
-          </div>
+          <AppShell>{children}</AppShell>
         </AppProvider>
       </body>
     </html>

@@ -7,37 +7,45 @@ interface CountUpProps {
   duration?: number;
   prefix?: string;
   suffix?: string;
-  format?: (n: number) => string;
+  decimals?: number;
 }
 
 export default function CountUp({
   target,
-  duration = 1500,
+  duration = 1100,
   prefix = "",
   suffix = "",
-  format = (n) => Math.floor(n).toLocaleString(),
+  decimals = 0,
 }: CountUpProps) {
-  const [value, setValue] = useState(0);
-  const frameRef = useRef<number>();
+  const [v, setV] = useState(0);
+  const startedRef = useRef(false);
 
   useEffect(() => {
-    const start = performance.now();
-    function step(now: number) {
-      const progress = Math.min((now - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setValue(target * eased);
-      if (progress < 1) frameRef.current = requestAnimationFrame(step);
-    }
-    frameRef.current = requestAnimationFrame(step);
+    if (startedRef.current) return;
+    startedRef.current = true;
+    const t0 = performance.now();
+    let raf: number;
+    const tick = (t: number) => {
+      const p = Math.min((t - t0) / duration, 1);
+      const e = 1 - Math.pow(1 - p, 3);
+      setV(target * e);
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    const safety = setTimeout(() => setV(target), duration + 80);
     return () => {
-      if (frameRef.current) cancelAnimationFrame(frameRef.current);
+      cancelAnimationFrame(raf);
+      clearTimeout(safety);
     };
   }, [target, duration]);
 
   return (
     <span>
       {prefix}
-      {format(value)}
+      {v.toLocaleString("en-US", {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      })}
       {suffix}
     </span>
   );

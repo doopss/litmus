@@ -2,266 +2,296 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useApp } from "@/lib/store";
 import { ANALYSIS_TAGS, runMockDetection } from "@/lib/mockData";
+import Icon from "@/components/Icon";
 
-type Phase = "idle" | "uploading" | "analyzing" | "verifying";
-
-const PHASE_LABELS: Record<Exclude<Phase, "idle">, string> = {
-  uploading: "Uploading to storage...",
-  analyzing: "Running AI analysis...",
-  verifying: "Verifying on-chain...",
-};
-
-const PHASE_PROGRESS: Record<Exclude<Phase, "idle">, number> = {
-  uploading: 30,
-  analyzing: 65,
-  verifying: 92,
-};
-
-function delay(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
+const PHASES = [
+  { id: "upload", label: "Uploading to storage", p: 30 },
+  { id: "analyze", label: "Running detector model", p: 68 },
+  { id: "chain", label: "Anchoring proof on-chain", p: 94 },
+];
 
 export default function VerifyPage() {
   const router = useRouter();
   const { addEarnings, setLastResult, showToast, state } = useApp();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
+  const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [url, setUrl] = useState("");
   const [tags, setTags] = useState<string[]>([]);
-  const [dragOver, setDragOver] = useState(false);
-  const [phase, setPhase] = useState<Phase>("idle");
+  const [drag, setDrag] = useState(false);
+  const [phase, setPhase] = useState(-1);
+  const busy = phase >= 0;
 
-  const busy = phase !== "idle";
-
-  function toggleTag(tag: string) {
-    setTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+  function toggle(t: string) {
+    setTags((p) =>
+      p.includes(t) ? p.filter((x) => x !== t) : [...p, t]
     );
-  }
-
-  function handleFile(f: File | undefined) {
-    if (f) setFile(f);
   }
 
   async function submit() {
     if (!file && !url.trim()) {
-      showToast("Upload a file or paste a URL first");
+      showToast("Add a file or URL first");
       return;
     }
-
-    setPhase("uploading");
-    await delay(900);
-    setPhase("analyzing");
-    await delay(2000);
-    setPhase("verifying");
-    await delay(900);
-
-    const detection = runMockDetection();
+    for (let i = 0; i < PHASES.length; i++) {
+      setPhase(i);
+      await new Promise((r) => setTimeout(r, i === 1 ? 1900 : 850));
+    }
+    const det = runMockDetection();
     const earnings = { base: 15, speed: 5, streak: 10, total: 30 };
-
     setLastResult({
-      label: detection.label,
-      confidence: detection.confidence,
+      label: det.label,
+      confidence: det.confidence,
       earnings,
       fileName: file ? file.name : url.trim(),
     });
     addEarnings(earnings.total, {
-      icon: "🔍",
+      kind: "verify",
       description: `Verified ${file ? file.name : "URL content"}`,
       reward: earnings.total,
     });
-
-    setPhase("idle");
-    showToast(`Verification complete! +${earnings.total} LMT`);
+    setPhase(-1);
     router.push("/result");
   }
 
   return (
-    <div className="animate-fade-in">
-      <header className="flex items-center justify-between border-b border-litmus-border px-4 py-3">
-        <Link
-          href="/dashboard"
-          className="touch-target flex min-w-[44px] items-center text-litmus-muted hover:text-white"
-        >
-          ←
-        </Link>
-        <span className="font-bold">Verify Content</span>
-        <div className="w-11" />
-      </header>
+    <div className="content narrow fade" style={{ padding: 0, maxWidth: 720 }}>
+      <div className="lbl" style={{ marginBottom: 6 }}>
+        STEP 01 · SUBMIT EVIDENCE
+      </div>
+      <h1 style={{ fontSize: 26, marginBottom: 18 }}>Verify Content</h1>
 
-      <div className="space-y-4 px-4 py-4">
-        {/* Upload Zone */}
+      <div className="grid" style={{ gap: 14 }}>
         <div
-          onClick={() => fileInputRef.current?.click()}
+          className="panel tick scan"
+          onClick={() => !busy && inputRef.current?.click()}
           onDragOver={(e) => {
             e.preventDefault();
-            setDragOver(true);
+            setDrag(true);
           }}
-          onDragLeave={() => setDragOver(false)}
+          onDragLeave={() => setDrag(false)}
           onDrop={(e) => {
             e.preventDefault();
-            setDragOver(false);
-            handleFile(e.dataTransfer.files[0]);
+            setDrag(false);
+            if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
           }}
-          className={`cursor-pointer rounded-card border-2 border-dashed p-8 text-center transition-all ${
-            dragOver
-              ? "border-litmus-accent bg-litmus-accent/10"
+          style={{
+            borderStyle: "dashed",
+            borderColor: drag
+              ? "var(--cyan)"
               : file
-                ? "border-litmus-green"
-                : "border-litmus-border"
-          }`}
+                ? "var(--green)"
+                : "var(--line2)",
+            cursor: busy ? "default" : "pointer",
+            padding: 30,
+            textAlign: "center",
+            background: drag
+              ? "color-mix(in oklab,var(--cyan) 8%,var(--panel))"
+              : "var(--panel)",
+          }}
         >
           <input
-            ref={fileInputRef}
+            ref={inputRef}
             type="file"
             accept="video/*,image/*"
-            className="hidden"
-            onChange={(e) => handleFile(e.target.files?.[0])}
+            hidden
+            onChange={(e) =>
+              e.target.files?.[0] && setFile(e.target.files[0])
+            }
           />
           {file ? (
             <div>
-              <div className="mx-auto mb-2 flex h-16 w-16 items-center justify-center rounded-card bg-litmus-bg text-2xl">
-                {file.type.startsWith("image") ? "🖼️" : "🎬"}
+              <div
+                style={{
+                  width: 56,
+                  height: 56,
+                  margin: "0 auto 12px",
+                  display: "grid",
+                  placeItems: "center",
+                  border: "1px solid var(--green)",
+                  borderRadius: 8,
+                  color: "var(--green)",
+                }}
+              >
+                <Icon name="check" size={26} />
               </div>
-              <p className="text-sm font-medium">{file.name}</p>
-              <p className="text-xs text-litmus-muted">
-                {(file.size / 1048576).toFixed(1)} MB
-              </p>
+              <div className="mono" style={{ fontSize: 13 }}>
+                {file.name}
+              </div>
+              <div className="lbl" style={{ marginTop: 4 }}>
+                {(file.size / 1048576).toFixed(1)} MB · READY
+              </div>
               <button
+                className="btn sm ghost"
+                style={{ marginTop: 10, color: "var(--red)" }}
                 onClick={(e) => {
                   e.stopPropagation();
                   setFile(null);
-                  if (fileInputRef.current) fileInputRef.current.value = "";
                 }}
-                className="touch-target mt-1 text-xs text-litmus-danger"
               >
-                Remove
+                REMOVE
               </button>
             </div>
           ) : (
             <div>
-              <div className="mb-3 text-4xl">📎</div>
-              <p className="mb-1 text-sm font-medium">
-                Drag &amp; drop or tap to upload
-              </p>
-              <p className="text-xs text-litmus-muted">
-                MP4, MOV, WebM · Max 100MB
-              </p>
+              <div
+                style={{
+                  width: 52,
+                  height: 52,
+                  margin: "0 auto 14px",
+                  display: "grid",
+                  placeItems: "center",
+                  border: "1px solid var(--line2)",
+                  borderRadius: 8,
+                  color: "var(--cyan)",
+                }}
+              >
+                <Icon name="upload" size={24} />
+              </div>
+              <div
+                style={{ fontSize: 15, fontWeight: 500, marginBottom: 4 }}
+              >
+                Drop a file or tap to browse
+              </div>
+              <div className="lbl">MP4 · MOV · WEBM · PNG · MAX 100MB</div>
             </div>
           )}
         </div>
 
-        {/* URL Input */}
-        <div>
-          <label className="mb-1.5 block text-xs text-litmus-muted">
-            Or paste a URL
-          </label>
-          <input
-            type="url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://tiktok.com/..."
-            className="touch-target w-full rounded-card border border-litmus-border bg-litmus-surface px-4 py-3 text-sm transition-colors focus:border-litmus-accent focus:outline-none"
-          />
-        </div>
-
-        {/* Analysis Tags */}
-        <div>
-          <p className="mb-2 text-xs text-litmus-muted">
-            Analysis focus (select all that apply)
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {ANALYSIS_TAGS.map((tag) => (
-              <button
-                key={tag}
-                onClick={() => toggleTag(tag)}
-                className={`touch-target rounded-full border px-4 py-2 text-xs transition-all ${
-                  tags.includes(tag)
-                    ? "border-litmus-accent bg-litmus-accent text-white"
-                    : "border-litmus-border bg-litmus-surface hover:border-litmus-accent"
-                }`}
-              >
-                {tag}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Info Cards */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="card p-3 text-center">
-            <p className="text-lg font-bold text-litmus-accent">⏱️ ~30s</p>
-            <p className="text-[10px] text-litmus-muted">Analysis Time</p>
-          </div>
-          <div className="card p-3 text-center">
-            <p className="text-lg font-bold text-litmus-green">💰 10–50</p>
-            <p className="text-[10px] text-litmus-muted">LMT Reward</p>
-          </div>
-        </div>
-
-        {/* Progress */}
-        {busy && (
-          <div className="card p-4">
-            <div className="mb-3 flex justify-between">
-              {(["uploading", "analyzing", "verifying"] as const).map((p) => {
-                const order = ["uploading", "analyzing", "verifying"];
-                const currentIdx = order.indexOf(phase);
-                const thisIdx = order.indexOf(p);
-                const done = thisIdx < currentIdx;
-                const active = p === phase;
-                return (
-                  <div key={p} className="flex flex-1 flex-col items-center">
-                    <div
-                      className={`mb-1 h-3 w-3 rounded-full transition-all ${
-                        done
-                          ? "bg-litmus-green"
-                          : active
-                            ? "bg-litmus-accent shadow-[0_0_12px_#9945FF]"
-                            : "bg-litmus-border"
-                      }`}
-                    />
-                    <span className="text-[10px] capitalize text-litmus-muted">
-                      {p}
-                    </span>
-                  </div>
-                );
-              })}
+        <div className="panel">
+          <div className="panel-b">
+            <div className="lbl" style={{ marginBottom: 8 }}>
+              OR PASTE A SOURCE URL
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-litmus-bg">
-              <div
-                className="h-full bg-litmus-accent transition-all duration-700"
-                style={{ width: `${PHASE_PROGRESS[phase]}%` }}
+            <div className="row" style={{ gap: 8 }}>
+              <Icon name="link" size={16} style={{ color: "var(--mut)" }} />
+              <input
+                className="field"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://tiktok.com/@…"
+                style={{ flex: 1 }}
               />
             </div>
-            <p className="mt-2 text-center text-xs text-litmus-muted">
-              {PHASE_LABELS[phase]}
-            </p>
+            <div className="lbl" style={{ margin: "16px 0 9px" }}>
+              ANALYSIS FOCUS
+            </div>
+            <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
+              {ANALYSIS_TAGS.map((t) => (
+                <button
+                  key={t}
+                  onClick={() => toggle(t)}
+                  className="chip"
+                  style={{
+                    minHeight: 34,
+                    padding: "0 12px",
+                    cursor: "pointer",
+                    borderColor: tags.includes(t)
+                      ? "var(--cyan)"
+                      : "var(--line2)",
+                    color: tags.includes(t) ? "var(--cyan)" : "var(--ink2)",
+                    background: tags.includes(t)
+                      ? "color-mix(in oklab,var(--cyan) 10%,transparent)"
+                      : "var(--bg2)",
+                  }}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid g2">
+          <div className="stat">
+            <div className="row" style={{ gap: 8 }}>
+              <Icon name="clock" size={16} style={{ color: "var(--cyan)" }} />
+              <span className="num" style={{ fontSize: 18 }}>
+                ~30s
+              </span>
+            </div>
+            <div className="lbl" style={{ marginTop: 4 }}>
+              ANALYSIS TIME
+            </div>
+          </div>
+          <div className="stat">
+            <div className="row" style={{ gap: 8 }}>
+              <Icon name="coins" size={16} style={{ color: "var(--green)" }} />
+              <span className="num t-green" style={{ fontSize: 18 }}>
+                10–50
+              </span>
+            </div>
+            <div className="lbl" style={{ marginTop: 4 }}>
+              LMT REWARD
+            </div>
+          </div>
+        </div>
+
+        {busy && (
+          <div className="panel tick up">
+            <div className="panel-b">
+              <div className="between" style={{ marginBottom: 12 }}>
+                {PHASES.map((ph, i) => (
+                  <div key={ph.id} style={{ flex: 1, textAlign: "center" }}>
+                    <div
+                      style={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: 9,
+                        margin: "0 auto 6px",
+                        background:
+                          i < phase
+                            ? "var(--green)"
+                            : i === phase
+                              ? "var(--cyan)"
+                              : "var(--line2)",
+                        boxShadow:
+                          i === phase ? "0 0 12px var(--cyan)" : "none",
+                        transition: ".3s",
+                      }}
+                    />
+                    <span className="lbl">{ph.id}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="meter">
+                <span
+                  style={{
+                    width: PHASES[phase].p + "%",
+                    background: "var(--cyan)",
+                  }}
+                />
+              </div>
+              <div
+                className="lbl"
+                style={{ textAlign: "center", marginTop: 10 }}
+              >
+                {PHASES[phase].label}…
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Submit */}
         <button
-          onClick={submit}
+          className="btn cta block"
           disabled={busy}
-          className="touch-target w-full rounded-card cta-gradient py-4 font-semibold text-black transition-transform active:scale-[0.98] disabled:opacity-50"
+          onClick={submit}
+          style={{ padding: 15 }}
         >
           {busy ? (
-            <span className="flex items-center justify-center gap-2">
-              <span className="loading-spinner h-5 w-5" />
-              Processing...
-            </span>
+            <>
+              <span className="spin" /> PROCESSING…
+            </>
           ) : (
-            "Submit for Verification"
+            <>
+              SUBMIT FOR VERIFICATION <Icon name="arrowR" size={16} />
+            </>
           )}
         </button>
-
-        <p className="text-center text-[10px] text-litmus-muted">
-          Current streak: {state.stats.streak} days 🔥 — streak bonus applies
-        </p>
+        <div className="lbl" style={{ textAlign: "center" }}>
+          STREAK {state.stats.streak}d ACTIVE · BONUS APPLIED
+        </div>
       </div>
     </div>
   );
