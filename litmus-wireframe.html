@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Litmus Protocol — Wireframe</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            litmus: {
+              bg: '#0f0f0f',
+              surface: '#1a1a1a',
+              border: '#2a2a2a',
+              accent: '#9945FF',
+              'accent-dim': '#7a35cc',
+              success: '#14F195',
+              danger: '#FF4D6D',
+              muted: '#888888',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          animation: {
+            'fade-in': 'fadeIn 0.35s ease-out',
+            'slide-up': 'slideUp 0.4s ease-out',
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'confetti': 'confettiFall 2.5s ease-out forwards',
+            'scale-in': 'scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            'shimmer': 'shimmer 1.5s infinite',
+          },
+          keyframes: {
+            fadeIn: { from: { opacity: '0' }, to: { opacity: '1' } },
+            slideUp: { from: { opacity: '0', transform: 'translateY(16px)' }, to: { opacity: '1', transform: 'translateY(0)' } },
+            confettiFall: { '0%': { transform: 'translateY(-10px) rotate(0deg)', opacity: '1' }, '100%': { transform: 'translateY(100vh) rotate(720deg)', opacity: '0' } },
+            scaleIn: { from: { transform: 'scale(0)', opacity: '0' }, to: { transform: 'scale(1)', opacity: '1' } },
+            shimmer: { '0%': { backgroundPosition: '-200% 0' }, '100%': { backgroundPosition: '200% 0' } },
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    body { background: #0f0f0f; overscroll-behavior: none; }
+    .screen { display: none; min-height: calc(100vh - 72px); }
+    .screen.active { display: block; animation: fadeIn 0.35s ease-out; }
+    .touch-target { min-height: 44px; min-width: 44px; }
+    .shimmer-bg {
+      background: linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+    .odds-bar { transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+    .tag-btn.selected { background: #9945FF; border-color: #9945FF; color: white; }
+    .bet-btn.selected-real { background: #14F195; color: #0f0f0f; border-color: #14F195; }
+    .bet-btn.selected-fake { background: #FF4D6D; color: white; border-color: #FF4D6D; }
+    .tab-btn.active { background: #9945FF; color: white; }
+    .nav-btn.active { color: #9945FF; }
+    .nav-btn.active svg { stroke: #9945FF; }
+    .activity-item { animation: slideUp 0.4s ease-out backwards; }
+    .confetti-piece {
+      position: fixed; width: 8px; height: 8px; top: -10px; z-index: 100;
+      animation: confettiFall 2.5s ease-out forwards;
+    }
+    .result-ring { animation: scaleIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s backwards; }
+    .drop-zone.dragover { border-color: #9945FF; background: rgba(153, 69, 255, 0.08); }
+    .drop-zone.has-file { border-color: #14F195; }
+    .toast {
+      transform: translateY(100px); opacity: 0;
+      transition: all 0.3s ease;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .loading-spinner {
+      border: 3px solid #2a2a2a;
+      border-top-color: #9945FF;
+      border-radius: 50%;
+      width: 24px; height: 24px;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .wallet-modal { backdrop-filter: blur(8px); }
+    .progress-step.active .step-dot { background: #9945FF; box-shadow: 0 0 12px #9945FF; }
+    .progress-step.done .step-dot { background: #14F195; }
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="font-sans text-white antialiased max-w-[480px] mx-auto relative">
+
+  <!-- Global Loading Overlay -->
+  <div id="global-loader" class="fixed inset-0 bg-litmus-bg/90 z-[200] hidden items-center justify-center flex-col gap-3">
+    <div class="loading-spinner w-10 h-10"></div>
+    <p class="text-litmus-muted text-sm" id="loader-text">Loading...</p>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast fixed bottom-20 left-4 right-4 z-[150] max-w-[480px] mx-auto">
+    <div class="bg-litmus-surface border border-litmus-border rounded-xl px-4 py-3 text-sm text-center shadow-lg" id="toast-msg"></div>
+  </div>
+
+  <!-- Wallet Modal -->
+  <div id="wallet-modal" class="wallet-modal fixed inset-0 bg-black/70 z-[100] hidden items-end justify-center">
+    <div class="bg-litmus-surface w-full max-w-[480px] rounded-t-2xl p-5 pb-8 animate-slide-up">
+      <div class="flex justify-between items-center mb-5">
+        <h3 class="font-semibold text-lg">Connect Wallet</h3>
+        <button onclick="closeWalletModal()" class="touch-target flex items-center justify-center text-litmus-muted hover:text-white" aria-label="Close">
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="space-y-3">
+        <button onclick="connectWallet('Phantom')" class="w-full flex items-center gap-3 bg-litmus-bg border border-litmus-border rounded-xl p-4 touch-target hover:border-litmus-accent transition-colors">
+          <span class="text-2xl">👻</span>
+          <span class="font-medium">Phantom</span>
+        </button>
+        <button onclick="connectWallet('Solflare')" class="w-full flex items-center gap-3 bg-litmus-bg border border-litmus-border rounded-xl p-4 touch-target hover:border-litmus-accent transition-colors">
+          <span class="text-2xl">🔆</span>
+          <span class="font-medium">Solflare</span>
+        </button>
+        <button onclick="connectWallet('Backpack')" class="w-full flex items-center gap-3 bg-litmus-bg border border-litmus-border rounded-xl p-4 touch-target hover:border-litmus-accent transition-colors">
+          <span class="text-2xl">🎒</span>
+          <span class="font-medium">Backpack</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confetti Container -->
+  <div id="confetti-container" class="fixed inset-0 pointer-events-none z-[90] overflow-hidden"></div>
+
+  <!-- Main Content -->
+  <main class="pb-[72px]">
+
+    <!-- SCREEN 1: LANDING -->
+    <section id="screen-landing" class="screen active">
+      <header class="flex items-center justify-between px-4 py-3 border-b border-litmus-border">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-litmus-accent flex items-center justify-center font-bold text-sm">L</div>
+          <span class="font-bold text-lg">Litmus</span>
+        </div>
+        <button onclick="navigateTo('dashboard')" class="text-sm text-litmus-accent font-medium touch-target px-3">Sign In</button>
+      </header>
+
+      <div class="px-4 py-8 text-center">
+        <div class="inline-flex items-center gap-1.5 bg-litmus-surface border border-litmus-border rounded-full px-3 py-1 text-xs text-litmus-muted mb-4">
+          <span class="w-2 h-2 rounded-full bg-litmus-success animate-pulse-slow"></span>
+          Live on Solana
+        </div>
+        <h1 class="text-3xl font-extrabold leading-tight mb-3">
+          Get Paid to<br><span class="text-litmus-accent">Catch Fakes</span>
+        </h1>
+        <p class="text-litmus-muted text-sm mb-6 max-w-xs mx-auto">Verify deepfakes, bet on authenticity, and climb the leaderboard. Earn LMT tokens for every catch.</p>
+        <button onclick="navigateTo('dashboard')" class="w-full bg-litmus-accent hover:bg-litmus-accent-dim active:scale-[0.98] transition-all rounded-xl py-4 font-semibold text-base touch-target mb-3">
+          Start Earning — It's Free
+        </button>
+        <button onclick="navigateTo('verify')" class="w-full border border-litmus-border text-litmus-muted rounded-xl py-3 text-sm touch-target hover:border-litmus-accent hover:text-white transition-colors">
+          See How It Works
+        </button>
+      </div>
+
+      <!-- Stats Bar -->
+      <div class="mx-4 bg-litmus-surface border border-litmus-border rounded-2xl p-4 mb-6">
+        <div class="grid grid-cols-3 gap-3 text-center">
+          <div>
+            <p class="text-lg font-bold text-litmus-accent" id="stat-earning">0</p>
+            <p class="text-[10px] text-litmus-muted uppercase tracking-wide">Earning Today</p>
+          </div>
+          <div class="border-x border-litmus-border">
+            <p class="text-lg font-bold text-litmus-success" id="stat-paid">$0</p>
+            <p class="text-[10px] text-litmus-muted uppercase tracking-wide">Paid Out</p>
+          </div>
+          <div>
+            <p class="text-lg font-bold" id="stat-caught">0</p>
+            <p class="text-[10px] text-litmus-muted uppercase tracking-wide">Fakes Caught</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature Grid -->
+      <div class="px-4 grid gap-3 mb-6">
+        <div class="bg-litmus-surface border border-litmus-border rounded-xl p-4 flex gap-3 items-start cursor-pointer hover:border-litmus-accent/50 transition-colors" onclick="navigateTo('verify')">
+          <div class="w-10 h-10 rounded-lg bg-litmus-accent/20 flex items-center justify-center text-lg shrink-0">🔍</div>
+          <div>
+            <h3 class="font-semibold text-sm mb-0.5">Verify & Earn</h3>
+            <p class="text-xs text-litmus-muted">Upload suspicious videos and earn 10–50 LMT per verification.</p>
+          </div>
+        </div>
+        <div class="bg-litmus-surface border border-litmus-border rounded-xl p-4 flex gap-3 items-start cursor-pointer hover:border-litmus-accent/50 transition-colors" onclick="navigateTo('market')">
+          <div class="w-10 h-10 rounded-lg bg-litmus-success/20 flex items-center justify-center text-lg shrink-0">📈</div>
+          <div>
+            <h3 class="font-semibold text-sm mb-0.5">Bet & Win</h3>
+            <p class="text-xs text-litmus-muted">Predict REAL or FAKE on hot markets and multiply your LMT.</p>
+          </div>
+        </div>
+        <div class="bg-litmus-surface border border-litmus-border rounded-xl p-4 flex gap-3 items-start cursor-pointer hover:border-litmus-accent/50 transition-colors" onclick="navigateTo('leaderboard')">
+          <div class="w-10 h-10 rounded-lg bg-litmus-danger/20 flex items-center justify-center text-lg shrink-0">🏆</div>
+          <div>
+            <h3 class="font-semibold text-sm mb-0.5">Compete</h3>
+            <p class="text-xs text-litmus-muted">Climb weekly rankings and unlock bonus rewards.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Testimonial -->
+      <div class="mx-4 mb-6 bg-gradient-to-br from-litmus-accent/10 to-transparent border border-litmus-accent/30 rounded-2xl p-4">
+        <p class="text-sm italic text-litmus-muted mb-3">"I earned 2,400 LMT in my first week just verifying TikToks. Litmus changed how I think about media."</p>
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-full bg-litmus-accent flex items-center justify-center text-xs font-bold">DK</div>
+          <div>
+            <p class="text-xs font-semibold">@deepfakekiller</p>
+            <p class="text-[10px] text-litmus-muted">Top 5% Hunter</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN 2: DASHBOARD -->
+    <section id="screen-dashboard" class="screen">
+      <header class="flex items-center justify-between px-4 py-3 border-b border-litmus-border">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-litmus-accent flex items-center justify-center font-bold text-sm">L</div>
+          <span class="font-bold">Dashboard</span>
+        </div>
+        <button id="wallet-btn" onclick="openWalletModal()" class="text-xs bg-litmus-surface border border-litmus-border rounded-lg px-3 py-2 touch-target hover:border-litmus-accent transition-colors">
+          Connect Wallet
+        </button>
+      </header>
+
+      <div class="px-4 py-4 space-y-4">
+        <!-- Earnings Card -->
+        <div class="bg-gradient-to-br from-litmus-accent/20 to-litmus-surface border border-litmus-accent/40 rounded-2xl p-5">
+          <p class="text-xs text-litmus-muted mb-1">Your Balance</p>
+          <div class="flex items-end gap-2 mb-2">
+            <span class="text-3xl font-extrabold" id="dash-balance">1,245</span>
+            <span class="text-litmus-accent font-semibold mb-1">LMT</span>
+          </div>
+          <p class="text-sm text-litmus-muted">≈ <span id="dash-usd">$42.33</span> USD</p>
+          <div class="mt-3 inline-flex items-center gap-1.5 bg-litmus-bg/50 rounded-full px-3 py-1 text-xs">
+            <span>🏅</span>
+            <span>Top <span id="dash-percentile">12</span>% — Rank #<span id="dash-rank">47</span></span>
+          </div>
+        </div>
+
+        <!-- CTAs -->
+        <div class="grid grid-cols-2 gap-3">
+          <button onclick="navigateTo('verify')" class="bg-litmus-accent hover:bg-litmus-accent-dim active:scale-[0.98] transition-all rounded-xl py-4 font-semibold text-sm touch-target">
+            Verify & Earn
+          </button>
+          <button onclick="navigateTo('market')" class="bg-litmus-surface border border-litmus-border hover:border-litmus-accent rounded-xl py-4 font-semibold text-sm touch-target transition-colors">
+            Bet & Win
+          </button>
+        </div>
+
+        <!-- Hot Market Preview -->
+        <div class="bg-litmus-surface border border-litmus-border rounded-2xl p-4 cursor-pointer hover:border-litmus-accent/50 transition-colors" onclick="navigateTo('market')">
+          <div class="flex justify-between items-start mb-3">
+            <div>
+              <span class="text-[10px] bg-litmus-danger/20 text-litmus-danger px-2 py-0.5 rounded-full font-medium">🔥 HOT</span>
+              <h3 class="font-semibold text-sm mt-1" id="hot-market-title">Elon Mars Video</h3>
+            </div>
+            <div class="text-right">
+              <p class="text-[10px] text-litmus-muted">Ends in</p>
+              <p class="text-sm font-bold text-litmus-accent" id="hot-countdown">02:00:00</p>
+            </div>
+          </div>
+          <div class="flex gap-2 text-xs mb-2">
+            <span class="text-litmus-success">REAL <span id="hot-real">28</span>%</span>
+            <span class="text-litmus-muted">·</span>
+            <span class="text-litmus-danger">FAKE <span id="hot-fake">72</span>%</span>
+          </div>
+          <div class="h-2 bg-litmus-bg rounded-full overflow-hidden flex">
+            <div class="h-full bg-litmus-success odds-bar" id="hot-real-bar" style="width:28%"></div>
+            <div class="h-full bg-litmus-danger odds-bar" id="hot-fake-bar" style="width:72%"></div>
+          </div>
+        </div>
+
+        <!-- Activity Feed -->
+        <div>
+          <h3 class="font-semibold text-sm mb-3">Recent Activity</h3>
+          <div id="activity-feed" class="space-y-2"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN 3: VERIFY -->
+    <section id="screen-verify" class="screen">
+      <header class="flex items-center justify-between px-4 py-3 border-b border-litmus-border">
+        <button onclick="navigateTo('dashboard')" class="touch-target flex items-center text-litmus-muted hover:text-white">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <span class="font-bold">Verify Content</span>
+        <div class="w-5"></div>
+      </header>
+
+      <div class="px-4 py-4 space-y-4">
+        <!-- Upload Zone -->
+        <div id="drop-zone" class="drop-zone border-2 border-dashed border-litmus-border rounded-2xl p-8 text-center transition-all cursor-pointer"
+             onclick="document.getElementById('file-input').click()">
+          <input type="file" id="file-input" accept="video/*,image/*" class="hidden">
+          <div id="upload-placeholder">
+            <div class="text-4xl mb-3">📤</div>
+            <p class="font-medium text-sm mb-1">Drag & drop or tap to upload</p>
+            <p class="text-xs text-litmus-muted">MP4, MOV, WebM · Max 100MB</p>
+          </div>
+          <div id="upload-preview" class="hidden">
+            <div id="preview-thumb" class="w-16 h-16 mx-auto rounded-xl bg-litmus-bg flex items-center justify-center text-2xl mb-2">🎬</div>
+            <p class="text-sm font-medium" id="preview-name">video.mp4</p>
+            <p class="text-xs text-litmus-muted" id="preview-size">12.4 MB</p>
+            <button onclick="event.stopPropagation(); clearUpload()" class="text-xs text-litmus-danger mt-2 touch-target">Remove</button>
+          </div>
+        </div>
+
+        <!-- URL Input -->
+        <div>
+          <label class="text-xs text-litmus-muted mb-1.5 block">Or paste a URL</label>
+          <input type="url" id="url-input" placeholder="https://tiktok.com/..." 
+                 class="w-full bg-litmus-surface border border-litmus-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-litmus-accent transition-colors touch-target">
+        </div>
+
+        <!-- Analysis Tags -->
+        <div>
+          <p class="text-xs text-litmus-muted mb-2">Analysis focus (select all that apply)</p>
+          <div id="tag-container" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <!-- Info Cards -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-litmus-surface border border-litmus-border rounded-xl p-3 text-center">
+            <p class="text-lg font-bold text-litmus-accent">~30s</p>
+            <p class="text-[10px] text-litmus-muted">Analysis Time</p>
+          </div>
+          <div class="bg-litmus-surface border border-litmus-border rounded-xl p-3 text-center">
+            <p class="text-lg font-bold text-litmus-success">10–50</p>
+            <p class="text-[10px] text-litmus-muted">LMT Reward</p>
+          </div>
+        </div>
+
+        <!-- Progress Steps -->
+        <div id="verify-progress" class="hidden">
+          <div class="flex justify-between mb-4">
+            <div class="progress-step flex flex-col items-center flex-1" data-step="upload">
+              <div class="step-dot w-3 h-3 rounded-full bg-litmus-border mb-1 transition-all"></div>
+              <span class="text-[10px] text-litmus-muted">Upload</span>
+            </div>
+            <div class="progress-step flex flex-col items-center flex-1" data-step="analyze">
+              <div class="step-dot w-3 h-3 rounded-full bg-litmus-border mb-1 transition-all"></div>
+              <span class="text-[10px] text-litmus-muted">Analyze</span>
+            </div>
+            <div class="progress-step flex flex-col items-center flex-1" data-step="complete">
+              <div class="step-dot w-3 h-3 rounded-full bg-litmus-border mb-1 transition-all"></div>
+              <span class="text-[10px] text-litmus-muted">Complete</span>
+            </div>
+          </div>
+          <div class="h-1.5 bg-litmus-bg rounded-full overflow-hidden">
+            <div id="verify-progress-bar" class="h-full bg-litmus-accent transition-all duration-500" style="width:0%"></div>
+          </div>
+          <p class="text-xs text-litmus-muted text-center mt-2" id="verify-status">Uploading...</p>
+        </div>
+
+        <!-- Submit -->
+        <button id="verify-submit" onclick="submitVerification()" 
+                class="w-full bg-litmus-accent hover:bg-litmus-accent-dim active:scale-[0.98] transition-all rounded-xl py-4 font-semibold touch-target disabled:opacity-40 disabled:cursor-not-allowed">
+          Submit for Verification
+        </button>
+      </div>
+    </section>
+
+    <!-- SCREEN 4: MARKET -->
+    <section id="screen-market" class="screen">
+      <header class="flex items-center justify-between px-4 py-3 border-b border-litmus-border">
+        <button onclick="navigateTo('dashboard')" class="touch-target flex items-center text-litmus-muted hover:text-white">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <span class="font-bold">Prediction Market</span>
+        <div class="w-5"></div>
+      </header>
+
+      <div class="px-4 py-4 space-y-4">
+        <!-- Market Header -->
+        <div class="bg-litmus-surface border border-litmus-border rounded-2xl p-4">
+          <span class="text-[10px] bg-litmus-danger/20 text-litmus-danger px-2 py-0.5 rounded-full">🔥 TRENDING</span>
+          <h2 class="text-lg font-bold mt-2 mb-1" id="market-title">Elon Mars Video</h2>
+          <p class="text-xs text-litmus-muted">Posted 3h ago · 1,247 participants · Ends <span id="market-countdown">2h 14m</span></p>
+        </div>
+
+        <!-- Odds Bars -->
+        <div class="bg-litmus-surface border border-litmus-border rounded-2xl p-4">
+          <div class="flex justify-between text-sm font-semibold mb-3">
+            <span class="text-litmus-success">REAL <span id="market-real-pct">28</span>%</span>
+            <span class="text-litmus-danger">FAKE <span id="market-fake-pct">72</span>%</span>
+          </div>
+          <div class="h-4 bg-litmus-bg rounded-full overflow-hidden flex mb-4">
+            <div class="h-full bg-litmus-success odds-bar" id="market-real-bar" style="width:28%"></div>
+            <div class="h-full bg-litmus-danger odds-bar" id="market-fake-bar" style="width:72%"></div>
+          </div>
+          <div class="grid grid-cols-2 gap-3 text-center text-xs">
+            <div class="bg-litmus-bg rounded-lg p-2">
+              <p class="text-litmus-muted">REAL Pool</p>
+              <p class="font-bold text-litmus-success" id="market-real-pool">45,000 LMT</p>
+            </div>
+            <div class="bg-litmus-bg rounded-lg p-2">
+              <p class="text-litmus-muted">FAKE Pool</p>
+              <p class="font-bold text-litmus-danger" id="market-fake-pool">120,000 LMT</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Selection -->
+        <div class="grid grid-cols-2 gap-3">
+          <button id="bet-real" onclick="selectBet('real')" class="bet-btn border-2 border-litmus-border bg-litmus-surface rounded-xl py-4 font-bold text-sm touch-target transition-all hover:border-litmus-success">
+            ✓ REAL
+          </button>
+          <button id="bet-fake" onclick="selectBet('fake')" class="bet-btn border-2 border-litmus-border bg-litmus-surface rounded-xl py-4 font-bold text-sm touch-target transition-all hover:border-litmus-danger">
+            ✗ FAKE
+          </button>
+        </div>
+
+        <!-- Stake Input -->
+        <div class="bg-litmus-surface border border-litmus-border rounded-2xl p-4">
+          <label class="text-xs text-litmus-muted mb-2 block">Your Stake (LMT)</label>
+          <div class="flex items-center gap-2 mb-3">
+            <input type="number" id="stake-input" value="50" min="1" max="1245"
+                   class="flex-1 bg-litmus-bg border border-litmus-border rounded-xl px-4 py-3 text-lg font-bold focus:outline-none focus:border-litmus-accent transition-colors touch-target"
+                   oninput="updatePotentialWin()">
+            <button onclick="setMaxStake()" class="text-xs bg-litmus-accent/20 text-litmus-accent px-3 py-3 rounded-lg touch-target font-medium">MAX</button>
+          </div>
+          <div class="flex gap-2 mb-3">
+            <button onclick="setStake(25)" class="flex-1 text-xs bg-litmus-bg border border-litmus-border rounded-lg py-2 touch-target hover:border-litmus-accent transition-colors">25</button>
+            <button onclick="setStake(50)" class="flex-1 text-xs bg-litmus-bg border border-litmus-border rounded-lg py-2 touch-target hover:border-litmus-accent transition-colors">50</button>
+            <button onclick="setStake(100)" class="flex-1 text-xs bg-litmus-bg border border-litmus-border rounded-lg py-2 touch-target hover:border-litmus-accent transition-colors">100</button>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-litmus-muted">Potential Win</span>
+            <span class="font-bold text-litmus-success" id="potential-win">+138 LMT</span>
+          </div>
+        </div>
+
+        <!-- Tip -->
+        <div class="bg-litmus-accent/10 border border-litmus-accent/30 rounded-xl p-3 text-xs text-litmus-muted">
+          💡 <strong class="text-white">Tip:</strong> Betting against the crowd (REAL at 28%) offers higher returns if correct.
+        </div>
+
+        <!-- Place Bet -->
+        <button id="place-bet-btn" onclick="placeBet()" 
+                class="w-full bg-litmus-accent hover:bg-litmus-accent-dim active:scale-[0.98] transition-all rounded-xl py-4 font-semibold touch-target disabled:opacity-40">
+          Place Bet
+        </button>
+      </div>
+    </section>
+
+    <!-- SCREEN 5: LEADERBOARD -->
+    <section id="screen-leaderboard" class="screen">
+      <header class="flex items-center justify-between px-4 py-3 border-b border-litmus-border">
+        <button onclick="navigateTo('dashboard')" class="touch-target flex items-center text-litmus-muted hover:text-white">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <span class="font-bold">Leaderboard</span>
+        <div class="w-5"></div>
+      </header>
+
+      <div class="px-4 py-4 space-y-4">
+        <!-- Tabs -->
+        <div class="flex bg-litmus-surface border border-litmus-border rounded-xl p-1 gap-1">
+          <button onclick="switchLeaderboardTab('weekly')" class="tab-btn active flex-1 text-xs font-medium py-2.5 rounded-lg transition-all touch-target" data-tab="weekly">Weekly</button>
+          <button onclick="switchLeaderboardTab('monthly')" class="tab-btn flex-1 text-xs font-medium py-2.5 rounded-lg transition-all touch-target text-litmus-muted" data-tab="monthly">Monthly</button>
+          <button onclick="switchLeaderboardTab('alltime')" class="tab-btn flex-1 text-xs font-medium py-2.5 rounded-lg transition-all touch-target text-litmus-muted" data-tab="alltime">All Time</button>
+        </div>
+
+        <!-- Rankings -->
+        <div id="leaderboard-list" class="space-y-2"></div>
+
+        <!-- User Position -->
+        <div id="user-position" class="bg-litmus-accent/10 border-2 border-litmus-accent rounded-xl p-3 flex items-center gap-3 animate-pulse-slow"></div>
+
+        <!-- User Stats -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-litmus-surface border border-litmus-border rounded-xl p-3 text-center">
+            <p class="text-xl font-bold" id="stat-verified">127</p>
+            <p class="text-[10px] text-litmus-muted">Verified</p>
+          </div>
+          <div class="bg-litmus-surface border border-litmus-border rounded-xl p-3 text-center">
+            <p class="text-xl font-bold text-litmus-success" id="stat-accuracy">94%</p>
+            <p class="text-[10px] text-litmus-muted">Accuracy</p>
+          </div>
+          <div class="bg-litmus-surface border border-litmus-border rounded-xl p-3 text-center">
+            <p class="text-xl font-bold text-litmus-accent" id="stat-roi">+156%</p>
+            <p class="text-[10px] text-litmus-muted">ROI</p>
+          </div>
+          <div class="bg-litmus-surface border border-litmus-border rounded-xl p-3 text-center">
+            <p class="text-xl font-bold text-litmus-danger" id="stat-streak">🔥 5</p>
+            <p class="text-[10px] text-litmus-muted">Day Streak</p>
+          </div>
+        </div>
+
+        <button onclick="inviteFriends()" class="w-full border border-litmus-accent text-litmus-accent rounded-xl py-3 font-semibold text-sm touch-target hover:bg-litmus-accent/10 transition-colors">
+          Invite Friends — Earn 100 LMT
+        </button>
+      </div>
+    </section>
+
+    <!-- SCREEN 6: RESULTS -->
+    <section id="screen-results" class="screen">
+      <div class="px-4 py-6 space-y-5 text-center">
+        <!-- Success Badge -->
+        <div class="result-ring inline-flex items-center justify-center w-20 h-20 rounded-full bg-litmus-success/20 border-4 border-litmus-success mx-auto">
+          <svg width="40" height="40" fill="none" stroke="#14F195" stroke-width="3"><path d="M8 20l8 8 16-16"/></svg>
+        </div>
+
+        <div>
+          <h2 class="text-2xl font-extrabold mb-1">Verification Complete!</h2>
+          <p class="text-sm text-litmus-muted">Your analysis has been recorded on-chain</p>
+        </div>
+
+        <!-- Result Circle -->
+        <div class="result-ring mx-auto w-32 h-32 rounded-full border-4 flex flex-col items-center justify-center" id="result-circle">
+          <span class="text-2xl font-extrabold" id="result-label">FAKE</span>
+          <span class="text-xs text-litmus-muted mt-1">Detected</span>
+        </div>
+
+        <!-- Confidence -->
+        <div class="bg-litmus-surface border border-litmus-border rounded-2xl p-4 mx-auto max-w-xs">
+          <p class="text-xs text-litmus-muted mb-1">Confidence Score</p>
+          <p class="text-3xl font-extrabold text-litmus-accent" id="confidence-score">0%</p>
+          <div class="h-2 bg-litmus-bg rounded-full mt-2 overflow-hidden">
+            <div class="h-full bg-litmus-accent transition-all duration-1000" id="confidence-bar" style="width:0%"></div>
+          </div>
+        </div>
+
+        <!-- Earnings Breakdown -->
+        <div class="bg-litmus-surface border border-litmus-border rounded-2xl p-4 text-left">
+          <h3 class="font-semibold text-sm mb-3 text-center">Earnings Breakdown</h3>
+          <div class="space-y-2 text-sm">
+            <div class="flex justify-between">
+              <span class="text-litmus-muted">Base Reward</span>
+              <span id="earn-base">+25 LMT</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-litmus-muted">Accuracy Bonus</span>
+              <span class="text-litmus-success" id="earn-bonus">+12 LMT</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-litmus-muted">Streak Bonus</span>
+              <span class="text-litmus-success" id="earn-streak">+8 LMT</span>
+            </div>
+            <div class="border-t border-litmus-border pt-2 flex justify-between font-bold">
+              <span>Total Earned</span>
+              <span class="text-litmus-accent text-lg" id="earn-total">+0 LMT</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Related Markets -->
+        <div class="text-left">
+          <h3 class="font-semibold text-sm mb-2">Related Markets</h3>
+          <div id="related-markets" class="space-y-2"></div>
+        </div>
+
+        <!-- Actions -->
+        <div class="grid grid-cols-2 gap-3">
+          <button onclick="shareResults()" class="border border-litmus-border rounded-xl py-3 font-semibold text-sm touch-target hover:border-litmus-accent transition-colors flex items-center justify-center gap-2">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v-2a4 4 0 014-4h8M12 4l4 4-4 4"/></svg>
+            Share
+          </button>
+          <button onclick="navigateTo('dashboard')" class="bg-litmus-accent rounded-xl py-3 font-semibold text-sm touch-target hover:bg-litmus-accent-dim transition-colors">
+            Continue
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Bottom Navigation -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-litmus-surface border-t border-litmus-border z-50 max-w-[480px] mx-auto">
+    <div class="flex justify-around items-center h-[72px] px-1">
+      <button onclick="navigateTo('landing')" class="nav-btn flex flex-col items-center gap-0.5 text-litmus-muted transition-colors touch-target px-2" data-nav="landing">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V10.5z"/></svg>
+        <span class="text-[10px]">Home</span>
+      </button>
+      <button onclick="navigateTo('dashboard')" class="nav-btn flex flex-col items-center gap-0.5 text-litmus-muted transition-colors touch-target px-2" data-nav="dashboard">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span class="text-[10px]">Dash</span>
+      </button>
+      <button onclick="navigateTo('verify')" class="nav-btn flex flex-col items-center gap-0.5 text-litmus-muted transition-colors touch-target px-2" data-nav="verify">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M8 11l2 2 4-4"/></svg>
+        <span class="text-[10px]">Verify</span>
+      </button>
+      <button onclick="navigateTo('market')" class="nav-btn flex flex-col items-center gap-0.5 text-litmus-muted transition-colors touch-target px-2" data-nav="market">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 17l6-6 4 4 8-10"/></svg>
+        <span class="text-[10px]">Market</span>
+      </button>
+      <button onclick="navigateTo('leaderboard')" class="nav-btn flex flex-col items-center gap-0.5 text-litmus-muted transition-colors touch-target px-2" data-nav="leaderboard">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 21h8M12 17v4M7 4h10l1 7H6L7 4zM7 11h10v6H7v-6z"/></svg>
+        <span class="text-[10px]">Ranks</span>
+      </button>
+      <button onclick="navigateTo('results')" class="nav-btn flex flex-col items-center gap-0.5 text-litmus-muted transition-colors touch-target px-2" data-nav="results">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
+        <span class="text-[10px]">Results</span>
+      </button>
+    </div>
+  </nav>
+
+  <script>
+    // ─── Mock State ───────────────────────────────────────────
+    const appState = {
+      currentScreen: 'landing',
+      user: {
+        wallet: null,
+        walletProvider: null,
+        balance: 1245,
+        rank: 47,
+        percentile: 12,
+        stats: { verified: 127, accuracy: 94, roi: 156, streak: 5 }
+      },
+      activities: [
+        { type: 'verify', description: 'Verified 3 videos', reward: 45, time: '2h ago', icon: '🔍' },
+        { type: 'prediction', description: 'Won "Elon Mars" prediction', reward: 72, time: '5h ago', icon: '📈' },
+        { type: 'streak', description: '5-day streak bonus', reward: 50, time: '1d ago', icon: '🔥' },
+        { type: 'verify', description: 'Verified TikTok deepfake', reward: 32, time: '1d ago', icon: '🔍' },
+        { type: 'prediction', description: 'Lost "Biden Speech" bet', reward: -20, time: '2d ago', icon: '📉' }
+      ],
+      market: {
+        id: 1,
+        title: 'Elon Mars Video',
+        realPercent: 28,
+        fakePercent: 72,
+        realStake: 45000,
+        fakeStake: 120000,
+        endSeconds: 8040
+      },
+      betSelection: null,
+      verifyTags: ['Audio', 'Visual', 'Lighting', 'Lip Sync', 'Metadata', 'Faces'],
+      selectedTags: [],
+      uploadedFile: null,
+      leaderboard: {
+        weekly: [
+          { rank: 1, name: '@cryptohunter', score: 12450, medal: '🥇' },
+          { rank: 2, name: '@fakedetective', score: 9820, medal: '🥈' },
+          { rank: 3, name: '@truthseeker', score: 8150, medal: '🥉' },
+          { rank: 4, name: '@mediatruth', score: 7340, medal: '' },
+          { rank: 5, name: '@deepwatch', score: 6890, medal: '' },
+          { rank: 6, name: '@verifybot', score: 5420, medal: '' },
+          { rank: 7, name: '@fakefinder', score: 4980, medal: '' },
+          { rank: 8, name: '@litmustest', score: 4650, medal: '' },
+          { rank: 9, name: '@chainproof', score: 4210, medal: '' },
+          { rank: 10, name: '@signalcheck', score: 3890, medal: '' }
+        ],
+        monthly: [
+          { rank: 1, name: '@fakedetective', score: 45200, medal: '🥇' },
+          { rank: 2, name: '@cryptohunter', score: 41800, medal: '🥈' },
+          { rank: 3, name: '@truthseeker', score: 38400, medal: '🥉' },
+          { rank: 4, name: '@deepwatch', score: 32100, medal: '' },
+          { rank: 5, name: '@mediatruth', score: 29800, medal: '' },
+          { rank: 6, name: '@verifybot', score: 26500, medal: '' },
+          { rank: 7, name: '@fakefinder', score: 24200, medal: '' },
+          { rank: 8, name: '@litmustest', score: 21800, medal: '' },
+          { rank: 9, name: '@chainproof', score: 19400, medal: '' },
+          { rank: 10, name: '@signalcheck', score: 17200, medal: '' }
+        ],
+        alltime: [
+          { rank: 1, name: '@cryptohunter', score: 198400, medal: '🥇' },
+          { rank: 2, name: '@truthseeker', score: 176200, medal: '🥈' },
+          { rank: 3, name: '@fakedetective', score: 164800, medal: '🥉' },
+          { rank: 4, name: '@deepwatch', score: 142000, medal: '' },
+          { rank: 5, name: '@mediatruth', score: 128600, medal: '' },
+          { rank: 6, name: '@verifybot', score: 115200, medal: '' },
+          { rank: 7, name: '@fakefinder', score: 98400, medal: '' },
+          { rank: 8, name: '@chainproof', score: 87200, medal: '' },
+          { rank: 9, name: '@signalcheck', score: 76800, medal: '' },
+          { rank: 10, name: '@litmustest', score: 65400, medal: '' }
+        ]
+      },
+      results: {
+        label: 'FAKE',
+        confidence: 94,
+        earnings: { base: 25, bonus: 12, streak: 8, total: 45 },
+        isFake: true
+      },
+      relatedMarkets: [
+        { title: 'Zuckerberg AI Interview', realPct: 15 },
+        { title: 'Trump Rally Clip', realPct: 61 }
+      ],
+      activeLeaderboardTab: 'weekly',
+      hotCountdownSeconds: 7200
+    };
+
+    // ─── Navigation ───────────────────────────────────────────
+    function navigateTo(screen) {
+      if (appState.currentScreen === screen) return;
+      const prev = document.getElementById('screen-' + appState.currentScreen);
+      const next = document.getElementById('screen-' + screen);
+      if (!next) return;
+
+      prev.classList.remove('active');
+      next.classList.add('active');
+      appState.currentScreen = screen;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.nav === screen);
+      });
+
+      if (screen === 'landing') animateLandingStats();
+      if (screen === 'dashboard') renderActivityFeed();
+      if (screen === 'leaderboard') renderLeaderboard();
+      if (screen === 'results') initResultsScreen();
+      if (screen === 'market') updatePotentialWin();
+    }
+
+    // ─── Toast ────────────────────────────────────────────────
+    let toastTimer;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-msg').textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
+    }
+
+    // ─── Global Loader ────────────────────────────────────────
+    function showLoader(text = 'Loading...') {
+      document.getElementById('loader-text').textContent = text;
+      document.getElementById('global-loader').classList.remove('hidden');
+      document.getElementById('global-loader').classList.add('flex');
+    }
+    function hideLoader() {
+      document.getElementById('global-loader').classList.add('hidden');
+      document.getElementById('global-loader').classList.remove('flex');
+    }
+
+    // ─── Landing Stats Animation ──────────────────────────────
+    function animateCounter(el, target, prefix = '', suffix = '', duration = 1500) {
+      const start = performance.now();
+      const isFloat = String(target).includes('.');
+      function step(now) {
+        const progress = Math.min((now - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const val = isFloat ? (target * eased).toFixed(1) : Math.floor(target * eased);
+        el.textContent = prefix + (isFloat ? val : val.toLocaleString()) + suffix;
+        if (progress < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    function animateLandingStats() {
+      animateCounter(document.getElementById('stat-earning'), 12847);
+      animateCounter(document.getElementById('stat-paid'), 48, '$', 'K');
+      animateCounter(document.getElementById('stat-caught'), 2400000);
+      const caught = document.getElementById('stat-caught');
+      setTimeout(() => { caught.textContent = '2.4M'; }, 1600);
+    }
+
+    // ─── Wallet ───────────────────────────────────────────────
+    function openWalletModal() {
+      if (appState.user.wallet) {
+        disconnectWallet();
+        return;
+      }
+      const modal = document.getElementById('wallet-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+    function closeWalletModal() {
+      const modal = document.getElementById('wallet-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+    function connectWallet(provider) {
+      showLoader('Connecting to ' + provider + '...');
+      setTimeout(() => {
+        appState.user.wallet = '7xKp...9mNq';
+        appState.user.walletProvider = provider;
+        hideLoader();
+        closeWalletModal();
+        updateWalletButton();
+        showToast('Connected via ' + provider);
+      }, 1200);
+    }
+    function disconnectWallet() {
+      appState.user.wallet = null;
+      appState.user.walletProvider = null;
+      updateWalletButton();
+      showToast('Wallet disconnected');
+    }
+    function updateWalletButton() {
+      const btn = document.getElementById('wallet-btn');
+      if (appState.user.wallet) {
+        btn.textContent = appState.user.wallet;
+        btn.classList.add('border-litmus-success', 'text-litmus-success');
+      } else {
+        btn.textContent = 'Connect Wallet';
+        btn.classList.remove('border-litmus-success', 'text-litmus-success');
+      }
+    }
+
+    // ─── Dashboard ────────────────────────────────────────────
+    function renderActivityFeed() {
+      const feed = document.getElementById('activity-feed');
+      feed.innerHTML = appState.activities.map((a, i) => `
+        <div class="activity-item bg-litmus-surface border border-litmus-border rounded-xl p-3 flex items-center gap-3 hover:border-litmus-accent/30 transition-colors" style="animation-delay:${i * 80}ms">
+          <span class="text-lg">${a.icon}</span>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium truncate">${a.description}</p>
+            <p class="text-[10px] text-litmus-muted">${a.time}</p>
+          </div>
+          <span class="text-sm font-bold ${a.reward >= 0 ? 'text-litmus-success' : 'text-litmus-danger'}">${a.reward >= 0 ? '+' : ''}${a.reward} LMT</span>
+        </div>
+      `).join('');
+    }
+
+    function formatCountdown(seconds) {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = seconds % 60;
+      return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    }
+
+    function formatShortCountdown(seconds) {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      return h > 0 ? `${h}h ${m}m` : `${m}m`;
+    }
+
+    setInterval(() => {
+      if (appState.hotCountdownSeconds > 0) appState.hotCountdownSeconds--;
+      if (appState.market.endSeconds > 0) appState.market.endSeconds--;
+      const hotEl = document.getElementById('hot-countdown');
+      const marketEl = document.getElementById('market-countdown');
+      if (hotEl) hotEl.textContent = formatCountdown(appState.hotCountdownSeconds);
+      if (marketEl) marketEl.textContent = formatShortCountdown(appState.market.endSeconds);
+    }, 1000);
+
+    // ─── Verify ───────────────────────────────────────────────
+    function renderTags() {
+      const container = document.getElementById('tag-container');
+      container.innerHTML = appState.verifyTags.map(tag => `
+        <button onclick="toggleTag('${tag}')" data-tag="${tag}"
+                class="tag-btn text-xs border border-litmus-border bg-litmus-surface rounded-full px-3 py-2 touch-target transition-all hover:border-litmus-accent">
+          ${tag}
+        </button>
+      `).join('');
+    }
+
+    function toggleTag(tag) {
+      const idx = appState.selectedTags.indexOf(tag);
+      if (idx >= 0) appState.selectedTags.splice(idx, 1);
+      else appState.selectedTags.push(tag);
+      document.querySelectorAll('.tag-btn').forEach(btn => {
+        btn.classList.toggle('selected', appState.selectedTags.includes(btn.dataset.tag));
+      });
+    }
+
+    function setupDropZone() {
+      const zone = document.getElementById('drop-zone');
+      const input = document.getElementById('file-input');
+
+      ['dragenter', 'dragover'].forEach(evt => {
+        zone.addEventListener(evt, e => { e.preventDefault(); zone.classList.add('dragover'); });
+      });
+      ['dragleave', 'drop'].forEach(evt => {
+        zone.addEventListener(evt, e => { e.preventDefault(); zone.classList.remove('dragover'); });
+      });
+      zone.addEventListener('drop', e => {
+        const file = e.dataTransfer.files[0];
+        if (file) handleFile(file);
+      });
+      input.addEventListener('change', e => {
+        if (e.target.files[0]) handleFile(e.target.files[0]);
+      });
+    }
+
+    function handleFile(file) {
+      appState.uploadedFile = file;
+      const zone = document.getElementById('drop-zone');
+      zone.classList.add('has-file');
+      document.getElementById('upload-placeholder').classList.add('hidden');
+      document.getElementById('upload-preview').classList.remove('hidden');
+      document.getElementById('preview-name').textContent = file.name;
+      document.getElementById('preview-size').textContent = (file.size / 1048576).toFixed(1) + ' MB';
+      document.getElementById('preview-thumb').textContent = file.type.startsWith('image') ? '🖼️' : '🎬';
+    }
+
+    function clearUpload() {
+      appState.uploadedFile = null;
+      const zone = document.getElementById('drop-zone');
+      zone.classList.remove('has-file');
+      document.getElementById('upload-placeholder').classList.remove('hidden');
+      document.getElementById('upload-preview').classList.add('hidden');
+      document.getElementById('file-input').value = '';
+    }
+
+    function setProgressStep(step) {
+      document.querySelectorAll('.progress-step').forEach(el => {
+        const s = el.dataset.step;
+        el.classList.remove('active', 'done');
+        if (s === step) el.classList.add('active');
+        const order = ['upload', 'analyze', 'complete'];
+        if (order.indexOf(s) < order.indexOf(step)) el.classList.add('done');
+      });
+    }
+
+    async function submitVerification() {
+      const hasFile = appState.uploadedFile;
+      const hasUrl = document.getElementById('url-input').value.trim();
+      if (!hasFile && !hasUrl) {
+        showToast('Please upload a file or paste a URL');
+        return;
+      }
+
+      const btn = document.getElementById('verify-submit');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="flex items-center justify-center gap-2"><span class="loading-spinner w-5 h-5"></span> Processing...</span>';
+
+      const progress = document.getElementById('verify-progress');
+      progress.classList.remove('hidden');
+
+      // Upload phase
+      setProgressStep('upload');
+      document.getElementById('verify-status').textContent = 'Uploading to Arweave...';
+      document.getElementById('verify-progress-bar').style.width = '15%';
+      await delay(1200);
+
+      document.getElementById('verify-progress-bar').style.width = '35%';
+      await delay(800);
+
+      // Analyze phase
+      setProgressStep('analyze');
+      document.getElementById('verify-status').textContent = 'Running AI analysis...';
+      document.getElementById('verify-progress-bar').style.width = '60%';
+      await delay(1500);
+
+      document.getElementById('verify-progress-bar').style.width = '85%';
+      document.getElementById('verify-status').textContent = 'Checking audio, visual, lighting...';
+      await delay(1000);
+
+      // Complete phase
+      setProgressStep('complete');
+      document.getElementById('verify-progress-bar').style.width = '100%';
+      document.getElementById('verify-status').textContent = 'Recording on-chain...';
+      await delay(800);
+
+      // Update state
+      const reward = 25 + Math.floor(Math.random() * 20);
+      appState.user.balance += reward;
+      appState.results.earnings = {
+        base: 25,
+        bonus: Math.floor(reward * 0.3),
+        streak: 8,
+        total: reward
+      };
+      appState.results.confidence = 88 + Math.floor(Math.random() * 10);
+      appState.results.label = Math.random() > 0.3 ? 'FAKE' : 'AUTHENTIC';
+      appState.results.isFake = appState.results.label === 'FAKE';
+
+      appState.activities.unshift({
+        type: 'verify',
+        description: 'Verified ' + (hasFile ? hasFile.name : 'URL content'),
+        reward: reward,
+        time: 'Just now',
+        icon: '🔍'
+      });
+
+      document.getElementById('dash-balance').textContent = appState.user.balance.toLocaleString();
+      document.getElementById('dash-usd').textContent = '$' + (appState.user.balance * 0.034).toFixed(2);
+
+      btn.disabled = false;
+      btn.textContent = 'Submit for Verification';
+      showToast('Verification complete! +' + reward + ' LMT');
+      navigateTo('results');
+    }
+
+    function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    // ─── Market ───────────────────────────────────────────────
+    function selectBet(side) {
+      appState.betSelection = side;
+      document.getElementById('bet-real').classList.toggle('selected-real', side === 'real');
+      document.getElementById('bet-fake').classList.toggle('selected-fake', side === 'fake');
+      document.getElementById('place-bet-btn').disabled = false;
+
+      const m = appState.market;
+      if (side === 'real') {
+        m.realPercent = Math.min(m.realPercent + 1, 95);
+        m.fakePercent = 100 - m.realPercent;
+      } else {
+        m.fakePercent = Math.min(m.fakePercent + 1, 95);
+        m.realPercent = 100 - m.fakePercent;
+      }
+      updateMarketOdds();
+      updatePotentialWin();
+    }
+
+    function updateMarketOdds() {
+      const m = appState.market;
+      ['market-real-pct', 'hot-real'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = m.realPercent; });
+      ['market-fake-pct', 'hot-fake'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = m.fakePercent; });
+      ['market-real-bar', 'hot-real-bar'].forEach(id => { const el = document.getElementById(id); if (el) el.style.width = m.realPercent + '%'; });
+      ['market-fake-bar', 'hot-fake-bar'].forEach(id => { const el = document.getElementById(id); if (el) el.style.width = m.fakePercent + '%'; });
+    }
+
+    function updatePotentialWin() {
+      const stake = parseInt(document.getElementById('stake-input').value) || 0;
+      const m = appState.market;
+      const side = appState.betSelection;
+      let win = 0;
+      if (side === 'real' && m.realPercent > 0) {
+        win = Math.floor(stake * (100 / m.realPercent));
+      } else if (side === 'fake' && m.fakePercent > 0) {
+        win = Math.floor(stake * (100 / m.fakePercent));
+      }
+      const el = document.getElementById('potential-win');
+      el.textContent = side ? '+' + win + ' LMT' : 'Select REAL or FAKE';
+      el.className = 'font-bold ' + (side ? 'text-litmus-success' : 'text-litmus-muted');
+    }
+
+    function setStake(amount) {
+      document.getElementById('stake-input').value = amount;
+      updatePotentialWin();
+    }
+    function setMaxStake() {
+      document.getElementById('stake-input').value = appState.user.balance;
+      updatePotentialWin();
+    }
+
+    async function placeBet() {
+      if (!appState.betSelection) {
+        showToast('Select REAL or FAKE first');
+        return;
+      }
+      const stake = parseInt(document.getElementById('stake-input').value) || 0;
+      if (stake < 1) { showToast('Enter a valid stake'); return; }
+      if (stake > appState.user.balance) { showToast('Insufficient balance'); return; }
+
+      const btn = document.getElementById('place-bet-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="flex items-center justify-center gap-2"><span class="loading-spinner w-5 h-5"></span> Placing bet...</span>';
+      showLoader('Confirming transaction...');
+
+      await delay(1800);
+      hideLoader();
+
+      appState.user.balance -= stake;
+      document.getElementById('dash-balance').textContent = appState.user.balance.toLocaleString();
+      document.getElementById('dash-usd').textContent = '$' + (appState.user.balance * 0.034).toFixed(2);
+
+      const side = appState.betSelection.toUpperCase();
+      appState.activities.unshift({
+        type: 'prediction',
+        description: `Bet ${stake} LMT on ${side} — "${appState.market.title}"`,
+        reward: -stake,
+        time: 'Just now',
+        icon: '📈'
+      });
+
+      btn.disabled = false;
+      btn.textContent = 'Place Bet';
+      showToast(`Bet placed! ${stake} LMT on ${side}`);
+    }
+
+    // ─── Leaderboard ──────────────────────────────────────────
+    function switchLeaderboardTab(tab) {
+      appState.activeLeaderboardTab = tab;
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        const isActive = btn.dataset.tab === tab;
+        btn.classList.toggle('active', isActive);
+        btn.classList.toggle('text-litmus-muted', !isActive);
+      });
+      renderLeaderboard();
+    }
+
+    function renderLeaderboard() {
+      const tab = appState.activeLeaderboardTab;
+      const data = appState.leaderboard[tab];
+      const list = document.getElementById('leaderboard-list');
+
+      list.innerHTML = data.map((entry, i) => `
+        <div class="flex items-center gap-3 bg-litmus-surface border border-litmus-border rounded-xl p-3 hover:border-litmus-accent/40 transition-all cursor-default" style="animation: slideUp 0.3s ease-out ${i * 50}ms backwards">
+          <span class="w-6 text-center font-bold text-sm ${entry.rank <= 3 ? 'text-lg' : 'text-litmus-muted'}">${entry.medal || entry.rank}</span>
+          <div class="flex-1">
+            <p class="text-sm font-semibold">${entry.name}</p>
+          </div>
+          <span class="text-sm font-bold text-litmus-accent">${entry.score.toLocaleString()}</span>
+        </div>
+      `).join('');
+
+      const userPos = document.getElementById('user-position');
+      userPos.innerHTML = `
+        <span class="w-8 text-center font-bold text-litmus-accent">#${appState.user.rank}</span>
+        <div class="flex-1">
+          <p class="text-sm font-semibold">You (@litmususer)</p>
+          <p class="text-[10px] text-litmus-muted">Top ${appState.user.percentile}% this week</p>
+        </div>
+        <span class="text-sm font-bold">4,650</span>
+      `;
+    }
+
+    function inviteFriends() {
+      showLoader('Generating invite link...');
+      setTimeout(() => {
+        hideLoader();
+        navigator.clipboard?.writeText('https://litmus.protocol/invite/abc123').catch(() => {});
+        showToast('Invite link copied! Share to earn 100 LMT');
+      }, 800);
+    }
+
+    // ─── Results ──────────────────────────────────────────────
+    function spawnConfetti() {
+      const container = document.getElementById('confetti-container');
+      container.innerHTML = '';
+      const colors = ['#9945FF', '#14F195', '#FF4D6D', '#FFD700', '#00D4FF'];
+      for (let i = 0; i < 40; i++) {
+        const piece = document.createElement('div');
+        piece.className = 'confetti-piece';
+        piece.style.left = Math.random() * 100 + '%';
+        piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+        piece.style.animationDelay = Math.random() * 0.8 + 's';
+        piece.style.animationDuration = (2 + Math.random() * 2) + 's';
+        piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+        piece.style.width = (6 + Math.random() * 6) + 'px';
+        piece.style.height = piece.style.width;
+        container.appendChild(piece);
+      }
+      setTimeout(() => container.innerHTML = '', 4000);
+    }
+
+    function animateEarningsCount(target) {
+      const el = document.getElementById('earn-total');
+      const start = performance.now();
+      function step(now) {
+        const progress = Math.min((now - start) / 1200, 1);
+        const val = Math.floor(target * (1 - Math.pow(1 - progress, 3)));
+        el.textContent = '+' + val + ' LMT';
+        if (progress < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    function initResultsScreen() {
+      const r = appState.results;
+      const circle = document.getElementById('result-circle');
+      const label = document.getElementById('result-label');
+
+      label.textContent = r.label;
+      if (r.isFake) {
+        circle.className = 'result-ring mx-auto w-32 h-32 rounded-full border-4 flex flex-col items-center justify-center border-litmus-danger bg-litmus-danger/10';
+        label.className = 'text-2xl font-extrabold text-litmus-danger';
+      } else {
+        circle.className = 'result-ring mx-auto w-32 h-32 rounded-full border-4 flex flex-col items-center justify-center border-litmus-success bg-litmus-success/10';
+        label.className = 'text-2xl font-extrabold text-litmus-success';
+      }
+
+      document.getElementById('earn-base').textContent = '+' + r.earnings.base + ' LMT';
+      document.getElementById('earn-bonus').textContent = '+' + r.earnings.bonus + ' LMT';
+      document.getElementById('earn-streak').textContent = '+' + r.earnings.streak + ' LMT';
+
+      const confEl = document.getElementById('confidence-score');
+      const confBar = document.getElementById('confidence-bar');
+      confEl.textContent = '0%';
+      confBar.style.width = '0%';
+
+      setTimeout(() => {
+        let c = 0;
+        const interval = setInterval(() => {
+          c += 2;
+          if (c >= r.confidence) { c = r.confidence; clearInterval(interval); }
+          confEl.textContent = c + '%';
+          confBar.style.width = c + '%';
+        }, 20);
+      }, 400);
+
+      animateEarningsCount(r.earnings.total);
+
+      document.getElementById('related-markets').innerHTML = appState.relatedMarkets.map(m => `
+        <div class="bg-litmus-surface border border-litmus-border rounded-xl p-3 flex justify-between items-center cursor-pointer hover:border-litmus-accent/50 transition-colors" onclick="navigateTo('market')">
+          <span class="text-sm font-medium">${m.title}</span>
+          <span class="text-xs text-litmus-success">REAL ${m.realPct}%</span>
+        </div>
+      `).join('');
+
+      spawnConfetti();
+    }
+
+    function shareResults() {
+      const text = `I just caught a ${appState.results.label} on @LitmusProtocol with ${appState.results.confidence}% confidence! Earned +${appState.results.earnings.total} LMT 🎯`;
+      navigator.clipboard?.writeText(text).catch(() => {});
+      showToast('Results copied to clipboard!');
+    }
+
+    // ─── Init ─────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      renderTags();
+      setupDropZone();
+      renderActivityFeed();
+      renderLeaderboard();
+      animateLandingStats();
+      updatePotentialWin();
+      document.getElementById('place-bet-btn').disabled = true;
+
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.nav === 'landing');
+      });
+
+      // Close wallet modal on backdrop click
+      document.getElementById('wallet-modal').addEventListener('click', e => {
+        if (e.target.id === 'wallet-modal') closeWalletModal();
+      });
+    });
+  </script>
+</body>
+</html>
