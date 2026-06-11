@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { useApp } from "@/lib/store";
+import { useLmtBalance } from "@/lib/useLmtBalance";
 import Icon from "./Icon";
 import WalletControl from "./WalletControl";
 import Toast from "./Toast";
@@ -46,6 +48,8 @@ function Brand({ subtitle }: { subtitle?: boolean }) {
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { state } = useApp();
+  const { publicKey } = useWallet();
+  const { lmtBalance, isLoading: lmtLoading } = useLmtBalance(publicKey);
   const top = topNavKey(pathname);
 
   return (
@@ -68,13 +72,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div className="sidefoot">
             <div className="panel" style={{ padding: 12, marginBottom: 10 }}>
               <div className="lbl" style={{ marginBottom: 4 }}>
-                BALANCE
+                GAME LMT
               </div>
               <div className="num" style={{ fontSize: 19 }}>
                 {state.balance.toLocaleString()}{" "}
                 <span className="t-cyan" style={{ fontSize: 12 }}>
                   LMT
                 </span>
+              </div>
+              <div className="lbl" style={{ marginTop: 10, marginBottom: 4 }}>
+                WALLET LMT
+              </div>
+              <div className="num t-cyan" style={{ fontSize: 15 }}>
+                {lmtLoading
+                  ? "…"
+                  : lmtBalance.toLocaleString(undefined, {
+                      maximumFractionDigits: 4,
+                    })}
               </div>
             </div>
             <WalletControl compact />

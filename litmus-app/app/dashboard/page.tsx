@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { useApp } from "@/lib/store";
 import { usd } from "@/lib/mockData";
+import { useLmtBalance } from "@/lib/useLmtBalance";
 import WalletControl from "@/components/WalletControl";
 import Sparkline from "@/components/Sparkline";
 import Icon from "@/components/Icon";
@@ -19,6 +21,8 @@ const EARN_SPARK = [8, 12, 9, 16, 14, 22, 19, 28, 24, 31];
 
 export default function DashboardPage() {
   const { state, markets } = useApp();
+  const { publicKey } = useWallet();
+  const { lmtBalance, isLoading: lmtLoading } = useLmtBalance(publicKey);
   const hot = markets[0];
 
   return (
@@ -46,7 +50,7 @@ export default function DashboardPage() {
         <div className="panel tick">
           <div className="panel-b">
             <div className="between">
-              <span className="lbl">LMT BALANCE</span>
+              <span className="lbl">GAME LMT</span>
               <span className="chip cyan">
                 <Icon name="trophy" size={11} />
                 RANK #{state.rank} · TOP {state.percentile}%
@@ -77,6 +81,24 @@ export default function DashboardPage() {
                 stroke="var(--green)"
                 fill="color-mix(in oklab,var(--green) 12%,transparent)"
               />
+            </div>
+            <div
+              className="between"
+              style={{
+                marginTop: 12,
+                paddingTop: 12,
+                borderTop: "1px solid var(--line)",
+              }}
+            >
+              <span className="lbl">WALLET LMT</span>
+              <span className="num t-cyan" style={{ fontSize: 16 }}>
+                {lmtLoading
+                  ? "…"
+                  : lmtBalance.toLocaleString(undefined, {
+                      maximumFractionDigits: 4,
+                    })}{" "}
+                <span style={{ fontSize: 12 }}>on-chain</span>
+              </span>
             </div>
           </div>
         </div>

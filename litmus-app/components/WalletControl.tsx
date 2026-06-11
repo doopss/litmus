@@ -1,32 +1,71 @@
 "use client";
 
-import { useState } from "react";
-import { useApp } from "@/lib/store";
-import { WALLETS } from "@/lib/mockData";
-import { WalletProvider } from "@/lib/types";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { WalletReadyState, type WalletName } from "@solana/wallet-adapter-base";
 import Icon from "./Icon";
+import { WalletProvider } from "@/lib/types";
+
+const SUPPORTED: WalletProvider[] = ["Phantom", "Solflare", "Backpack"];
 
 interface WalletControlProps {
   compact?: boolean;
 }
 
+function truncateAddress(base58: string): string {
+  return base58.slice(0, 4) + "…" + base58.slice(-4);
+}
+
 export default function WalletControl({ compact }: WalletControlProps) {
-  const { state, connectWallet, disconnectWallet } = useApp();
+  const { wallets, select, connect, disconnect, connected, connecting, publicKey } =
+    useWallet();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<WalletProvider | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  const available = useMemo(
+    () =>
+      SUPPORTED.map((name) => {
+        const entry = wallets.find((w) => w.adapter.name === name);
+        return {
+          name,
+          ready:
+            entry?.readyState === WalletReadyState.Installed ||
+            entry?.readyState === WalletReadyState.Loadable,
+        };
+      }).filter((w) => w.ready),
+    [wallets]
+  );
 
   async function go(provider: WalletProvider) {
     setBusy(provider);
-    await connectWallet(provider);
-    setBusy(null);
-    setOpen(false);
+    try {
+      select(provider as WalletName);
+      await connect();
+      setOpen(false);
+    } catch {
+      // user rejected or wallet unavailable — sheet stays open
+    } finally {
+      setBusy(null);
+    }
   }
 
-  if (state.wallet) {
+  async function handleDisconnect() {
+    try {
+      await disconnect();
+    } catch {
+      // ignore disconnect errors
+    }
+  }
+
+  if (connected && publicKey) {
     return (
       <button
         className="btn sm"
-        onClick={disconnectWallet}
+        onClick={handleDisconnect}
         title="Disconnect"
         style={{
           borderColor: "color-mix(in oklab,var(--green) 45%,transparent)",
@@ -42,7 +81,7 @@ export default function WalletControl({ compact }: WalletControlProps) {
           }}
         />
         <span className="mono" style={{ fontSize: 12 }}>
-          {state.wallet.address}
+          {truncateAddress(publicKey.toBase58())}
         </span>
       </button>
     );
@@ -53,52 +92,69 @@ export default function WalletControl({ compact }: WalletControlProps) {
       <button
         className={"btn" + (compact ? " sm" : "")}
         onClick={() => setOpen(true)}
+        disabled={connecting}
       >
-        <Icon name="wallet" size={16} /> Connect
+        {connecting ? (
+          <span className="spin" />
+        ) : (
+          <>
+            <Icon name="wallet" size={16} /> Connect
+          </>
+        )}
       </button>
-      {open && (
-        <div
-          className="sheet-wrap"
-          onClick={(e) => e.target === e.currentTarget && setOpen(false)}
-        >
-          <div className="sheet">
-            <div className="between" style={{ marginBottom: 18 }}>
-              <div>
-                <div className="lbl" style={{ marginBottom: 5 }}>
-                  CONNECT
+      {open &&
+        mounted &&
+        createPortal(
+          <div
+            className="sheet-wrap"
+            onClick={(e) => e.target === e.currentTarget && setOpen(false)}
+          >
+            <div className="sheet">
+              <div className="between" style={{ marginBottom: 18 }}>
+                <div>
+                  <div className="lbl" style={{ marginBottom: 5 }}>
+                    CONNECT
+                  </div>
+                  <h3 style={{ fontSize: 18 }}>Select a wallet</h3>
                 </div>
-                <h3 style={{ fontSize: 18 }}>Select a wallet</h3>
+                <button className="btn sm ghost" onClick={() => setOpen(false)}>
+                  <Icon name="x" size={16} />
+                </button>
               </div>
-              <button className="btn sm ghost" onClick={() => setOpen(false)}>
-                <Icon name="x" size={16} />
-              </button>
+              {available.length === 0 ? (
+                <p
+                  className="dim"
+                  style={{ fontSize: 13, textAlign: "center", margin: "12px 0" }}
+                >
+                  No supported wallet detected. Install Phantom, Solflare, or
+                  Backpack.
+                </p>
+              ) : (
+                available.map(({ name }) => (
+                  <button
+                    key={name}
+                    className="wallet-opt"
+                    disabled={busy !== null}
+                    onClick={() => go(name)}
+                  >
+                    <span className="ico">{name[0]}</span>
+                    <span style={{ fontWeight: 500 }}>{name}</span>
+                    {busy === name ? (
+                      <span className="spin" style={{ marginLeft: "auto" }} />
+                    ) : (
+                      <Icon
+                        name="chevR"
+                        size={16}
+                        style={{ marginLeft: "auto", color: "var(--mut)" }}
+                      />
+                    )}
+                  </button>
+                ))
+              )}
             </div>
-            {WALLETS.map((p) => (
-              <button
-                key={p}
-                className="wallet-opt"
-                disabled={busy !== null}
-                onClick={() => go(p)}
-              >
-                <span className="ico">{p[0]}</span>
-                <span style={{ fontWeight: 500 }}>{p}</span>
-                {busy === p ? (
-                  <span className="spin" style={{ marginLeft: "auto" }} />
-                ) : (
-                  <Icon
-                    name="chevR"
-                    size={16}
-                    style={{ marginLeft: "auto", color: "var(--mut)" }}
-                  />
-                )}
-              </button>
-            ))}
-            <div className="lbl" style={{ textAlign: "center", marginTop: 8 }}>
-              MOCK CONNECTION · NO REAL ASSETS
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </>
   );
 }

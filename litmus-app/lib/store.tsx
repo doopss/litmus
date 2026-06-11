@@ -20,14 +20,13 @@ import { INITIAL_STATE, MARKETS } from "./mockData";
 
 const STORAGE_KEY = "litmus_v2_state";
 
-const ADDRS = ["7xKp…9fQa", "Bn3v…Wm2L", "9aQc…Rt4Z", "Fd2k…Lp8N"];
-
 interface AppContextValue {
   state: AppState;
   hydrated: boolean;
   markets: Market[];
   connectWallet: (provider: WalletProvider) => Promise<void>;
   disconnectWallet: () => void;
+  syncWallet: (wallet: AppState["wallet"]) => void;
   addEarnings: (amount: number, activity: Omit<Activity, "id" | "time">) => void;
   placeBet: (market: Market, side: "REAL" | "FAKE", stake: number) => void;
   setLastResult: (result: VerificationResult) => void;
@@ -95,14 +94,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toastTimer.current = setTimeout(() => setToast(null), 2600);
   }, []);
 
-  const connectWallet = useCallback(async (provider: WalletProvider) => {
-    await new Promise((r) => setTimeout(r, 900));
-    const address = ADDRS[Math.floor(Math.random() * ADDRS.length)];
-    setState((s) => ({ ...s, wallet: { address, provider } }));
+  const connectWallet = useCallback(async (_provider: WalletProvider) => {
+    void _provider;
+    // Real connection is handled by WalletControl via @solana/wallet-adapter-react
   }, []);
 
   const disconnectWallet = useCallback(() => {
+    // Real disconnect is handled by WalletControl; store is synced via WalletStoreSync
     setState((s) => ({ ...s, wallet: null }));
+  }, []);
+
+  const syncWallet = useCallback((wallet: AppState["wallet"]) => {
+    setState((s) => {
+      if (
+        s.wallet?.address === wallet?.address &&
+        s.wallet?.provider === wallet?.provider
+      ) {
+        return s;
+      }
+      return { ...s, wallet };
+    });
   }, []);
 
   const addEarnings = useCallback(
@@ -187,6 +198,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         markets,
         connectWallet,
         disconnectWallet,
+        syncWallet,
         addEarnings,
         placeBet,
         setLastResult,

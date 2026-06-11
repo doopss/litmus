@@ -1,8 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Space_Grotesk, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
-import { AppProvider } from "@/lib/store";
-import AppShell from "@/components/AppShell";
+import Providers from "@/components/Providers";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -38,9 +37,7 @@ export default function RootLayout({
       <body
         className={`${spaceGrotesk.variable} ${ibmPlexMono.variable} antialiased`}
       >
-        <AppProvider>
-          <AppShell>{children}</AppShell>
-        </AppProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
